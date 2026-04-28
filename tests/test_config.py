@@ -17,6 +17,8 @@ def test_settings_load_from_env(monkeypatch):
 
 def test_settings_missing_required_raises(monkeypatch):
     monkeypatch.delenv("HMAC_SECRET", raising=False)
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    monkeypatch.delenv("MAPTILER_API_KEY", raising=False)
     import pytest
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
