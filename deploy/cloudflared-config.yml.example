@@ -1,0 +1,7 @@
+tunnel: <UUID-FROM-cloudflared-tunnel-create>
+credentials-file: /etc/cloudflared/<UUID>.json
+
+ingress:
+  - hostname: dccrime.iandmuir.com
+    service: http://127.0.0.1:8000
+  - service: http_status:404
