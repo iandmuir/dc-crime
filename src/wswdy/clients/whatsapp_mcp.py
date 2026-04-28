@@ -29,7 +29,7 @@ async def send_message(
     token: str,
     to: str,
     text: str,
-    image_path: Path | None = None,
+    image_path: str | Path | None = None,
     timeout_s: float = 30.0,
 ) -> dict:
     """Send a WhatsApp message via the MCP bridge.
@@ -43,6 +43,7 @@ async def send_message(
     try:
         async with httpx.AsyncClient(timeout=timeout_s) as client:
             if image_path is not None:
+                image_path = Path(image_path)
                 with image_path.open("rb") as f:
                     files = {"image": (image_path.name, f, "image/png")}
                     data = {"to": to, "text": text}
