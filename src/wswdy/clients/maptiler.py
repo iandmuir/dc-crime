@@ -70,7 +70,8 @@ async def render_static_map(
     # Home pin first (near-black)
     params.append(("marker", f"{center_lon},{center_lat},#0A0A0A"))
     for lat, lon, tier in markers[:60]:  # cap to keep URL length sane
-        params.append(("marker", f"{lon},{lat},#{_TIER_HEX[tier]}"))
+        color = _TIER_HEX.get(tier, "888888")  # grey fallback for unknown tiers
+        params.append(("marker", f"{lon},{lat},#{color}"))
     async with httpx.AsyncClient(timeout=timeout_s) as client:
         r = await client.get(url, params=params)
         r.raise_for_status()
