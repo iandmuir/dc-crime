@@ -12,7 +12,7 @@ from wswdy.config import get_settings
 from wswdy.db import connect, init_schema
 from wswdy.notifiers.email import EmailNotifier
 from wswdy.notifiers.whatsapp import WhatsAppMcpNotifier
-from wswdy.routes import admin_review, health, public, unsubscribe
+from wswdy.routes import admin_review, api_crimes, api_preview, health, map_view, public, unsubscribe
 
 PKG_DIR = Path(__file__).resolve().parent
 STATIC_DIR = PKG_DIR / "static"
@@ -58,6 +58,9 @@ def create_app() -> FastAPI:
     app.include_router(public.router)
     app.include_router(admin_review.router)
     app.include_router(unsubscribe.router)
+    app.include_router(map_view.router)
+    app.include_router(api_crimes.router)
+    app.include_router(api_preview.router)
 
     return app
 

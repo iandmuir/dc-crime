@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Map — wswdy{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>html, body { height: 100%; overflow: hidden; }</style>
+{% endblock %}
+{% block content %}
+<aside class="panel">
+  <div class="panel-head">
+    <div class="panel-eyebrow">briefing for</div>
+    <h1 class="panel-title">{{ sub.display_name }} <span class="accent">·</span> {{ sub.address_text }}</h1>
+    <div class="panel-meta"><strong class="tnum">{{ "{:,}".format(sub.radius_m) }}m</strong> around your home</div>
+  </div>
+  <div class="window">
+    <div class="window-label">window</div>
+    <div class="toggle" id="toggle">
+      <button class="active" data-window="24h"><span class="num" id="n-24h">—</span><span class="lbl">24h</span></button>
+      <button data-window="7d"><span class="num" id="n-7d">—</span><span class="lbl">7d</span></button>
+      <button data-window="30d"><span class="num" id="n-30d">—</span><span class="lbl">30d</span></button>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="legend-head">
+      <span class="legend-eyebrow">reports shown</span>
+      <span class="legend-total"><span id="legend-total">—</span><span class="unit">total</span></span>
+    </div>
+    <div class="legend-rows">
+      <div class="legend-row"><span class="swatch" style="background: var(--t1);"></span><span class="lbl">Violent</span><span class="num" id="leg-1">0</span></div>
+      <div class="legend-row"><span class="swatch" style="background: var(--t2);"></span><span class="lbl">Property</span><span class="num" id="leg-2">0</span></div>
+      <div class="legend-row"><span class="swatch" style="background: var(--t3);"></span><span class="lbl">Vehicle</span><span class="num" id="leg-3">0</span></div>
+      <div class="legend-row"><span class="swatch" style="background: var(--t4);"></span><span class="lbl">Petty</span><span class="num" id="leg-4">0</span></div>
+    </div>
+  </div>
+</aside>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const HOME = [{{ sub.lat }}, {{ sub.lon }}];
+const RADIUS_M = {{ sub.radius_m }};
+const SID = "{{ sub.id }}";
+const TOKEN = "{{ token }}";
+const KEY = "{{ maptiler_key }}";
+
+const map = L.map('map', { center: HOME, zoom: 15 });
+L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${KEY}`, {
+  attribution: '© MapTiler © OpenStreetMap · MPD DC', maxZoom: 19,
+}).addTo(map);
+
+const homeIcon = L.divIcon({ className: '', html: '<div class="home-marker"></div>',
+  iconSize: [26, 26], iconAnchor: [13, 13] });
+L.marker(HOME, { icon: homeIcon }).addTo(map);
+L.circle(HOME, { radius: RADIUS_M, className: 'radius-circle' }).addTo(map);
+
+let layer = L.layerGroup().addTo(map);
+
+async function load(window) {
+  const r = await fetch(`/api/crimes?subscriber=${SID}&token=${encodeURIComponent(TOKEN)}&window=${window}`);
+  if (!r.ok) return;
+  const fc = await r.json();
+  layer.clearLayers();
+  const counts = [0,0,0,0];
+  fc.features.forEach(f => {
+    const t = f.properties.tier;
+    counts[t-1]++;
+    const icon = L.divIcon({ className: '',
+      html: `<div class="marker t${t}"></div>`,
+      iconSize: [18,18], iconAnchor: [9,9] });
+    L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]], { icon })
+      .addTo(layer)
+      .bindPopup(`<div class="pop-title">${f.properties.offense}</div>
+                  <div class="pop-row"><span class="k">where</span><span class="v">${f.properties.block || ''}</span></div>
+                  <div class="pop-row"><span class="k">when</span><span class="v">${f.properties.report_dt}</span></div>`);
+  });
+  document.getElementById('legend-total').textContent = fc.features.length;
+  for (let i=1; i<=4; i++) document.getElementById('leg-'+i).textContent = counts[i-1];
+  document.getElementById('n-' + window).textContent = fc.features.length;
+}
+
+document.querySelectorAll('#toggle button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#toggle button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    load(b.dataset.window);
+  });
+});
+
+['24h', '7d', '30d'].forEach(load);
+</script>
+{% endblock %}
