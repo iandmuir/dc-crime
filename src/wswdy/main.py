@@ -5,17 +5,13 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 from wswdy.config import get_settings
 from wswdy.db import connect, init_schema
 from wswdy.routes import health
 
 PKG_DIR = Path(__file__).resolve().parent
-TEMPLATES_DIR = PKG_DIR / "templates"
 STATIC_DIR = PKG_DIR / "static"
-
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 def create_app() -> FastAPI:
