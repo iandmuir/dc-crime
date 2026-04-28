@@ -1,6 +1,5 @@
-from wswdy.notifiers.base import dispatch, SendResult
+from wswdy.notifiers.base import dispatch
 from wswdy.notifiers.fake import FakeNotifier
-
 
 SUB = {"id": "s1", "preferred_channel": "whatsapp",
        "phone": "+12025551234", "email": "fall@back.com"}

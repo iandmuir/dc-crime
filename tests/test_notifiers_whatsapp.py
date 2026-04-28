@@ -1,4 +1,5 @@
 from unittest.mock import AsyncMock, patch
+
 from wswdy.clients.whatsapp_mcp import McpSessionExpired, McpUnreachable
 from wswdy.notifiers.whatsapp import WhatsAppMcpNotifier
 
