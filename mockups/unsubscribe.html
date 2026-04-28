@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unsubscribe — wswdy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    .page {
+      max-width: 540px;
+      margin: 0 auto;
+      padding: 4rem 1.75rem 4rem;
+    }
+
+    .lede { margin-bottom: 1.75rem; }
+    .lede-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: var(--ink-3);
+      padding: 0.35rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      margin-bottom: 1.5rem;
+    }
+    .lede-eyebrow::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--ink-4);
+      border-radius: 50%;
+    }
+
+    .lede-title {
+      font-size: clamp(2.2rem, 4.8vw, 2.9rem);
+      font-weight: 600;
+      font-variation-settings: 'wdth' 95, 'opsz' 96;
+      line-height: 1.0;
+      margin: 0 0 1rem;
+      letter-spacing: -0.03em;
+    }
+    .lede-title .name {
+      color: var(--t1);
+    }
+
+    .lede-sub {
+      font-size: 1.05rem;
+      color: var(--ink-2);
+      line-height: 1.5;
+      margin: 0;
+      max-width: 40ch;
+    }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: 1.75rem 1.75rem 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .card-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--ink-3);
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card-eyebrow::after {
+      content: '';
+      flex: 1;
+      border-top: 1px dashed var(--border);
+    }
+
+    .summary {
+      display: grid;
+      gap: 0.7rem;
+    }
+    .summary-row {
+      display: grid;
+      grid-template-columns: 6.5rem 1fr;
+      gap: 1rem;
+      align-items: baseline;
+      font-size: 0.92rem;
+    }
+    .summary-row .k {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: var(--ink-3);
+    }
+    .summary-row .v {
+      color: var(--ink);
+      font-weight: 400;
+    }
+    .summary-row .v .mono { color: var(--ink-3); }
+
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      margin-top: 1.75rem;
+      flex-wrap: wrap;
+    }
+    .actions .btn { padding: 0.85rem 1.4rem; }
+    .actions .keep {
+      flex: 0 0 auto;
+      font-size: 0.92rem;
+      color: var(--ink-3);
+      font-weight: 500;
+    }
+
+    /* Done state */
+    .card.is-done .confirm-view { display: none; }
+    .card:not(.is-done) .done-view { display: none; }
+
+    .done-view { text-align: left; }
+    .done-mark {
+      width: 56px; height: 56px;
+      background: var(--t4);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 0 0 6px rgba(101, 163, 13, 0.12);
+    }
+    .done-mark svg {
+      width: 26px; height: 26px;
+      stroke: white;
+      stroke-width: 2.4;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .done-title {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.65rem;
+      letter-spacing: -0.025em;
+      line-height: 1.05;
+      margin: 0 0 0.65rem;
+    }
+    .done-sub {
+      color: var(--ink-2);
+      font-size: 1rem;
+      line-height: 1.5;
+      margin: 0 0 0.5rem;
+    }
+    .done-sub.muted { color: var(--ink-3); font-size: 0.92rem; }
+
+    /* state demo */
+    .state-demo {
+      margin-top: 1.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px dashed var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--ink-4);
+      justify-content: center;
+    }
+    .state-demo button {
+      padding: 0.35rem 0.7rem;
+      border: 1px solid var(--border-2);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--ink-3);
+      background: var(--surface);
+      border-radius: 999px;
+      transition: all 0.12s;
+    }
+    .state-demo button.active {
+      background: var(--ink); color: var(--bg); border-color: var(--ink);
+    }
+
+    @media (max-width: 540px) {
+      .card { padding: 1.5rem 1.25rem; }
+      .summary-row { grid-template-columns: 5rem 1fr; }
+      .actions { flex-direction: column; align-items: stretch; }
+      .actions .btn { width: 100%; }
+      .actions .keep { text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="nav">
+    <a href="index.html" class="nav-mark">/wswdy</a>
+    <div class="nav-meta">unsubscribe</div>
+  </header>
+
+  <main class="page fade-in">
+
+    <section class="lede">
+      <div class="lede-eyebrow">Cancel briefing</div>
+      <h1 class="display lede-title">
+        Hey <span class="name">Jane</span> — leaving us?
+      </h1>
+      <p class="lede-sub">
+        We won't try to talk you out of it. One click and you're done.
+      </p>
+    </section>
+
+    <div class="card" id="card">
+
+      <!-- Confirm view -->
+      <div class="confirm-view">
+        <div class="card-eyebrow">your subscription</div>
+        <div class="summary">
+          <div class="summary-row">
+            <span class="k">channel</span>
+            <span class="v">WhatsApp <span class="mono tnum">+1 202 555 0123</span></span>
+          </div>
+          <div class="summary-row">
+            <span class="k">coverage</span>
+            <span class="v"><span class="tnum">1,000m</span> around 1500 14th St NW</span>
+          </div>
+          <div class="summary-row">
+            <span class="k">joined</span>
+            <span class="v tnum">12 March 2026</span>
+          </div>
+          <div class="summary-row">
+            <span class="k">last sent</span>
+            <span class="v tnum">today, 06:14 ET</span>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-danger" id="confirm-btn">
+            Yes, unsubscribe me
+          </button>
+          <a href="index.html" class="keep tlink">Nevermind, keep me on</a>
+        </div>
+      </div>
+
+      <!-- Done view -->
+      <div class="done-view">
+        <div class="done-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <div class="card-eyebrow">confirmed</div>
+        <h2 class="done-title">You're out. Take care, Jane.</h2>
+        <p class="done-sub">No more morning briefings. We'll wipe your contact details from active sends right now.</p>
+        <p class="done-sub muted">Change your mind? The door's open.</p>
+
+        <div class="actions">
+          <a href="index.html" class="btn btn-secondary">Re-subscribe</a>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="state-demo">
+      <span>demo state</span>
+      <button type="button" class="active" data-state="confirm">confirm</button>
+      <button type="button" data-state="done">done</button>
+    </div>
+
+  </main>
+
+  <script>
+    const card = document.getElementById('card');
+    document.getElementById('confirm-btn').addEventListener('click', () => {
+      card.classList.add('is-done');
+      document.querySelector('.state-demo button[data-state=done]').classList.add('active');
+      document.querySelector('.state-demo button[data-state=confirm]').classList.remove('active');
+    });
+    document.querySelectorAll('.state-demo button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.state-demo button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        if (b.dataset.state === 'done') card.classList.add('is-done');
+        else card.classList.remove('is-done');
+      });
+    });
+  </script>
+
+</body>
+</html>

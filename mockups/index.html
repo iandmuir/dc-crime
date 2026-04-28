@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>What shit went down yesterday? — DC Crime Alerts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 4rem 1.75rem 6rem;
+    }
+
+    /* Hero */
+    .hero { margin-bottom: 3rem; }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: var(--ink-3);
+      padding: 0.35rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      margin-bottom: 1.5rem;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--t4);
+      border-radius: 50%;
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .hero-title {
+      font-size: clamp(2.6rem, 6.2vw, 4.4rem);
+      font-weight: 600;
+      font-variation-settings: 'wdth' 95, 'opsz' 96;
+      line-height: 0.98;
+      margin: 0 0 1.5rem;
+      letter-spacing: -0.035em;
+    }
+    .hero-title .accent {
+      color: var(--t1);
+      font-style: italic;
+      font-variation-settings: 'wdth' 90, 'opsz' 96;
+    }
+
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--ink-2);
+      max-width: 44ch;
+      line-height: 1.45;
+      letter-spacing: -0.01em;
+    }
+
+    /* Form card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: 2rem 2rem 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin: 0 0 0.25rem;
+      letter-spacing: -0.015em;
+    }
+    .card-sub {
+      color: var(--ink-3);
+      font-size: 0.9rem;
+      margin: 0 0 1.75rem;
+    }
+
+    /* Address autocomplete */
+    .ac-wrap { position: relative; }
+    .ac-list {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0; right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-md);
+      box-shadow: var(--shadow-md);
+      z-index: 5;
+      list-style: none;
+      margin: 0;
+      padding: 0.4rem;
+      overflow: hidden;
+    }
+    .ac-list li {
+      padding: 0.65rem 0.75rem;
+      font-size: 0.94rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      border-radius: var(--r-sm);
+      transition: background 0.1s;
+    }
+    .ac-list li:hover, .ac-list li.active { background: var(--surface-2); }
+    .ac-list li .pin {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .ac-list li .pin::after {
+      content: ''; width: 6px; height: 6px;
+      background: var(--ink); border-radius: 50%;
+    }
+    .ac-list li.active .pin { background: var(--ink); }
+    .ac-list li.active .pin::after { background: white; }
+    .ac-list li .ac-main { flex: 1; }
+    .ac-list li .ac-sub {
+      color: var(--ink-3);
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+    }
+
+    /* Channel segmented control */
+    .seg {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 4px;
+      background: var(--surface-2);
+      border-radius: var(--r-md);
+      position: relative;
+      gap: 0;
+    }
+    .seg input { display: none; }
+    .seg label {
+      position: relative;
+      padding: 0.7rem 0.9rem;
+      font-size: 0.92rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      color: var(--ink-3);
+      border-radius: var(--r-sm);
+      transition: color 0.18s;
+      z-index: 2;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    .seg input:checked + label { color: var(--ink); }
+    .seg-thumb {
+      position: absolute;
+      top: 4px; bottom: 4px;
+      left: 4px;
+      width: calc(50% - 4px);
+      background: var(--surface);
+      border-radius: var(--r-sm);
+      box-shadow: 0 1px 2px rgba(10, 10, 10, 0.06), 0 1px 0 rgba(10, 10, 10, 0.04) inset;
+      transition: transform 0.28s cubic-bezier(0.65, 0.05, 0.36, 1);
+      z-index: 1;
+    }
+    .seg.is-whatsapp .seg-thumb { transform: translateX(100%); }
+    .seg-icon {
+      width: 16px; height: 16px;
+      stroke-width: 1.8;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Slider */
+    .radius-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .radius-value {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.85rem;
+      color: var(--ink);
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .radius-value .unit {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--ink-3);
+      margin-left: 0.3rem;
+      font-weight: 400;
+    }
+
+    .slider {
+      position: relative;
+      padding: 1.1rem 0 0.5rem;
+    }
+    .slider-track {
+      height: 6px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      position: relative;
+      overflow: hidden;
+    }
+    .slider-fill {
+      position: absolute;
+      top: 0; left: 0; height: 100%;
+      background: var(--ink);
+      border-radius: 999px;
+      transition: width 0.12s ease-out;
+    }
+    .slider input[type=range] {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      margin: 0;
+      cursor: ew-resize;
+      z-index: 3;
+    }
+    .slider-thumb {
+      position: absolute;
+      top: 50%;
+      width: 22px; height: 22px;
+      background: white;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: left 0.12s ease-out, transform 0.18s ease, box-shadow 0.18s ease;
+      z-index: 2;
+      pointer-events: none;
+      box-shadow: 0 2px 6px rgba(10, 10, 10, 0.18);
+    }
+    .slider input[type=range]:focus ~ .slider-thumb { box-shadow: 0 0 0 5px rgba(10, 10, 10, 0.1); }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--ink-4);
+      margin-top: 0.65rem;
+    }
+
+    /* Preview panel */
+    .preview {
+      margin-top: 1.5rem;
+      padding: 1.5rem;
+      background: var(--surface-2);
+      border-radius: var(--r-lg);
+      position: relative;
+      transition: background 0.3s;
+    }
+    .preview-eyebrow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .preview-eyebrow .l {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: var(--ink-3);
+    }
+    .preview-eyebrow .r {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--ink-4);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .preview-eyebrow .r::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--t4);
+      border-radius: 50%;
+    }
+
+    .preview-headline {
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+      margin-bottom: 0.25rem;
+    }
+    .preview-number {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 3.2rem;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .preview-label {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 1rem;
+      color: var(--ink-2);
+    }
+    .preview-sub {
+      font-size: 0.88rem;
+      color: var(--ink-3);
+      margin-bottom: 1.25rem;
+    }
+
+    .preview-bar {
+      display: flex;
+      width: 100%;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      margin-bottom: 1.1rem;
+      background: var(--surface-3);
+    }
+    .preview-bar > span {
+      display: block;
+      height: 100%;
+      transition: width 0.55s cubic-bezier(0.2, 0.65, 0.2, 1);
+    }
+
+    .preview-legend {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem 1.25rem;
+    }
+    .preview-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-size: 0.9rem;
+      padding: 0.4rem 0;
+    }
+    .preview-legend-item .lbl { color: var(--ink-2); }
+    .preview-legend-item .num {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* state variants */
+    .preview.empty .preview-headline,
+    .preview.empty .preview-sub,
+    .preview.empty .preview-bar,
+    .preview.empty .preview-legend,
+    .preview.empty .preview-eyebrow .r { display: none; }
+    .preview.empty .preview-empty-msg { display: flex; }
+    .preview-empty-msg {
+      display: none;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 0.75rem 0;
+      color: var(--ink-3);
+      font-size: 0.95rem;
+    }
+    .preview-empty-msg::before {
+      content: '';
+      width: 28px; height: 28px;
+      border: 1.5px dashed var(--border-2);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .preview.loading .preview-number,
+    .preview.loading .preview-label,
+    .preview.loading .preview-sub,
+    .preview.loading .preview-legend-item .num,
+    .preview.loading .preview-legend-item .lbl,
+    .preview.loading .preview-eyebrow .l,
+    .preview.loading .preview-eyebrow .r { color: transparent; }
+    .preview.loading .preview-number,
+    .preview.loading .preview-label,
+    .preview.loading .preview-sub,
+    .preview.loading .preview-legend-item .num,
+    .preview.loading .preview-legend-item .lbl,
+    .preview.loading .preview-eyebrow .l,
+    .preview.loading .preview-eyebrow .r {
+      background: linear-gradient(90deg, var(--surface-3) 25%, var(--border) 50%, var(--surface-3) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s linear infinite;
+      border-radius: 4px;
+    }
+    .preview.loading .preview-eyebrow .r::before { display: none; }
+    .preview.loading .preview-bar { background: var(--surface-3); }
+    .preview.loading .preview-bar > span { background: transparent !important; }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .preview.loading .tier-dot { opacity: 0.3; }
+
+    .preview.zero {
+      background: linear-gradient(135deg, var(--surface-2), #ECF6E0);
+    }
+    .preview.zero .preview-bar,
+    .preview.zero .preview-legend { display: none; }
+    .preview.zero .preview-headline { margin-bottom: 0.4rem; }
+    .preview.zero .preview-number { color: var(--t4); }
+    .preview.zero .preview-sub { font-size: 1rem; color: var(--ink-2); }
+
+    /* state demo (mockup-only) */
+    .state-demo {
+      margin: 1rem 0 0;
+      padding: 1rem 0 0;
+      border-top: 1px dashed var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--ink-4);
+      flex-wrap: wrap;
+    }
+    .state-demo .lbl { margin-right: 0.5rem; }
+    .state-demo button {
+      padding: 0.35rem 0.7rem;
+      border: 1px solid var(--border-2);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--ink-3);
+      background: var(--surface);
+      border-radius: 999px;
+      transition: all 0.12s;
+    }
+    .state-demo button.active {
+      background: var(--ink); color: var(--bg); border-color: var(--ink);
+    }
+    .state-demo button:hover:not(.active) { border-color: var(--ink); color: var(--ink); }
+
+    /* Submit area */
+    .submit-area {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .submit-fineprint {
+      font-size: 0.85rem;
+      color: var(--ink-3);
+      margin: 0.85rem 0 0;
+      line-height: 1.5;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: var(--ink-4);
+    }
+    .footer a:hover { color: var(--ink); }
+
+    @media (max-width: 540px) {
+      .page { padding: 2rem 1rem 4rem; }
+      .card { padding: 1.5rem 1.25rem; }
+      .preview-legend { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="nav">
+    <a href="#" class="nav-mark">/wswdy</a>
+    <div class="nav-meta"><strong>DC</strong> · friends &amp; family alpha</div>
+  </header>
+
+  <main class="page fade-in">
+
+    <section class="hero">
+      <div class="hero-eyebrow">A daily 6am text · MPD-sourced</div>
+      <h1 class="display hero-title">
+        What <span class="accent">shit</span> went down yesterday?
+      </h1>
+      <p class="hero-sub">
+        A quiet morning summary of crimes reported within walking distance of your home in DC. Email or WhatsApp. Free. No ads. Run by a neighbor.
+      </p>
+    </section>
+
+    <form id="signup" class="card">
+      <h2 class="card-title">Get the briefing</h2>
+      <p class="card-sub">Two minutes. We'll review and confirm by email.</p>
+
+      <div class="field">
+        <label class="field-label" for="name">First name</label>
+        <input id="name" class="field-input" type="text" placeholder="Jane" autocomplete="given-name" />
+      </div>
+
+      <div class="field ac-wrap">
+        <label class="field-label" for="addr">Home address</label>
+        <input id="addr" class="field-input" type="text" value="1500 14th St NW" autocomplete="off" />
+        <ul class="ac-list" id="ac-list">
+          <li class="active">
+            <span class="pin"></span>
+            <span class="ac-main"><strong>1500 14th St NW</strong>, Washington, DC 20005</span>
+            <span class="ac-sub">Logan&nbsp;Circle</span>
+          </li>
+          <li>
+            <span class="pin"></span>
+            <span class="ac-main"><strong>1500 14th St NW APT 412</strong>, Washington, DC 20005</span>
+            <span class="ac-sub">Logan&nbsp;Circle</span>
+          </li>
+          <li>
+            <span class="pin"></span>
+            <span class="ac-main"><strong>1500 14th Pl SE</strong>, Washington, DC 20020</span>
+            <span class="ac-sub">Anacostia</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="field">
+        <label class="field-label">How should we reach you?</label>
+        <div class="seg" id="seg">
+          <input type="radio" name="channel" id="ch-email" value="email" checked />
+          <label for="ch-email">
+            <svg class="seg-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+            Email
+          </label>
+          <input type="radio" name="channel" id="ch-wa" value="whatsapp" />
+          <label for="ch-wa">
+            <svg class="seg-icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-3.4-7L21 4l-1 4 .4.5A9 9 0 0121 12z"/><path d="M8.5 11.5c.5 2 2 3.5 4 4 1 .2 1.7-.5 1.7-.5l-1.4-1.5a3.6 3.6 0 01-2.7-2.7L8.7 9.4s-.7.6-.2 2.1z"/></svg>
+            WhatsApp
+          </label>
+          <span class="seg-thumb"></span>
+        </div>
+      </div>
+
+      <div class="field" id="contact-field">
+        <label class="field-label" for="contact">Email address</label>
+        <input id="contact" class="field-input" type="email" placeholder="jane@example.com" />
+      </div>
+
+      <div class="field">
+        <div class="radius-row">
+          <label class="field-label" style="margin: 0;">How far should we look?</label>
+          <div class="radius-value">
+            <span id="radius-num">1,000</span><span class="unit">m</span>
+          </div>
+        </div>
+        <div class="slider">
+          <div class="slider-track">
+            <div class="slider-fill" id="slider-fill" style="width: 44%;"></div>
+          </div>
+          <input type="range" min="200" max="2000" step="100" value="1000" id="radius" />
+          <div class="slider-thumb" id="slider-thumb" style="left: 44%;"></div>
+        </div>
+        <div class="slider-labels">
+          <span>200m</span>
+          <span>1,000m</span>
+          <span>2,000m</span>
+        </div>
+      </div>
+
+      <div class="preview" id="preview">
+        <div class="preview-eyebrow">
+          <span class="l">Within <span id="prev-r" class="tnum">1,000</span>m · last 7 days</span>
+          <span class="r">live</span>
+        </div>
+        <div class="preview-headline">
+          <span class="preview-number" id="prev-total">23</span>
+          <span class="preview-label">crimes reported</span>
+        </div>
+        <div class="preview-sub">≈ <span class="tnum" id="prev-avg">3.3</span> per day on average</div>
+        <div class="preview-bar" aria-hidden="true">
+          <span style="width: 4%;  background: var(--t1);"></span>
+          <span style="width: 9%;  background: var(--t2);"></span>
+          <span style="width: 13%; background: var(--t3);"></span>
+          <span style="width: 74%; background: var(--t4);"></span>
+        </div>
+        <div class="preview-legend">
+          <div class="preview-legend-item"><span class="tier-dot t1"></span><span class="lbl">Violent</span><span class="num">1</span></div>
+          <div class="preview-legend-item"><span class="tier-dot t2"></span><span class="lbl">Serious property</span><span class="num">2</span></div>
+          <div class="preview-legend-item"><span class="tier-dot t3"></span><span class="lbl">Vehicle</span><span class="num">3</span></div>
+          <div class="preview-legend-item"><span class="tier-dot t4"></span><span class="lbl">Petty</span><span class="num">17</span></div>
+        </div>
+        <div class="preview-empty-msg">
+          Enter an address above to preview crime activity in your area.
+        </div>
+      </div>
+
+      <!-- mockup-only state cycler — strip in production -->
+      <div class="state-demo">
+        <span class="lbl">Preview state</span>
+        <button type="button" data-state="data" class="active">data</button>
+        <button type="button" data-state="empty">empty</button>
+        <button type="button" data-state="loading">loading</button>
+        <button type="button" data-state="zero">zero</button>
+      </div>
+
+      <div class="submit-area">
+        <button type="submit" class="btn btn-primary btn-block btn-lg">
+          Request access &nbsp;→
+        </button>
+        <p class="submit-fineprint">
+          We'll email you to confirm. Daily messages start the morning after we approve. Unsubscribe anytime — one click, no questions.
+        </p>
+      </div>
+
+    </form>
+
+    <footer class="footer">
+      <div>data: <a href="https://opendata.dc.gov/datasets/" class="tlink">DC MPD open feed</a></div>
+      <div>dccrime.iandmuir.com</div>
+    </footer>
+
+  </main>
+
+  <script>
+    // Channel toggle
+    const seg = document.getElementById('seg');
+    const contactField = document.getElementById('contact-field');
+    const contactInput = document.getElementById('contact');
+    const contactLabel = contactField.querySelector('label');
+    document.querySelectorAll('input[name=channel]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (r.value === 'whatsapp' && r.checked) {
+          seg.classList.add('is-whatsapp');
+          contactInput.type = 'tel';
+          contactInput.placeholder = '+1 202 555 0123';
+          contactLabel.textContent = 'Phone number';
+        } else if (r.value === 'email' && r.checked) {
+          seg.classList.remove('is-whatsapp');
+          contactInput.type = 'email';
+          contactInput.placeholder = 'jane@example.com';
+          contactLabel.textContent = 'Email address';
+        }
+      });
+    });
+
+    // Radius slider
+    const r = document.getElementById('radius');
+    const num = document.getElementById('radius-num');
+    const fill = document.getElementById('slider-fill');
+    const thumb = document.getElementById('slider-thumb');
+    const prevR = document.getElementById('prev-r');
+
+    const mockData = {
+      200:  { total: 1,  avg: 0.1, bars: [0,0,0,1],  legend: [0,0,0,1] },
+      400:  { total: 4,  avg: 0.6, bars: [0,1,1,2],  legend: [0,1,1,2] },
+      600:  { total: 9,  avg: 1.3, bars: [1,1,1,6],  legend: [1,1,1,6] },
+      800:  { total: 15, avg: 2.1, bars: [1,2,2,10], legend: [1,2,2,10] },
+      1000: { total: 23, avg: 3.3, bars: [1,2,3,17], legend: [1,2,3,17] },
+      1200: { total: 32, avg: 4.6, bars: [2,3,4,23], legend: [2,3,4,23] },
+      1400: { total: 41, avg: 5.9, bars: [3,4,5,29], legend: [3,4,5,29] },
+      1600: { total: 53, avg: 7.6, bars: [3,5,7,38], legend: [3,5,7,38] },
+      1800: { total: 64, avg: 9.1, bars: [4,6,9,45], legend: [4,6,9,45] },
+      2000: { total: 78, avg: 11.1,bars: [5,8,11,54],legend: [5,8,11,54] },
+    };
+
+    function nearestKey(v) {
+      const keys = Object.keys(mockData).map(Number);
+      return keys.reduce((p, c) => Math.abs(c - v) < Math.abs(p - v) ? c : p);
+    }
+    function fmtN(n) { return n.toLocaleString('en-US'); }
+
+    function updatePreview(value) {
+      const d = mockData[nearestKey(value)];
+      document.getElementById('prev-total').textContent = d.total;
+      document.getElementById('prev-avg').textContent   = d.avg.toFixed(1);
+      const bar = document.querySelectorAll('.preview-bar > span');
+      const sum = d.bars.reduce((a,b) => a+b, 0) || 1;
+      bar[0].style.width = (d.bars[0]/sum*100) + '%';
+      bar[1].style.width = (d.bars[1]/sum*100) + '%';
+      bar[2].style.width = (d.bars[2]/sum*100) + '%';
+      bar[3].style.width = (d.bars[3]/sum*100) + '%';
+      const nums = document.querySelectorAll('.preview-legend-item .num');
+      nums[0].textContent = d.legend[0];
+      nums[1].textContent = d.legend[1];
+      nums[2].textContent = d.legend[2];
+      nums[3].textContent = d.legend[3];
+    }
+
+    function update() {
+      const v = +r.value;
+      const pct = ((v - 200) / (2000 - 200)) * 100;
+      num.textContent = fmtN(v);
+      prevR.textContent = fmtN(v);
+      fill.style.width = pct + '%';
+      thumb.style.left = pct + '%';
+      updatePreview(v);
+    }
+    r.addEventListener('input', update);
+    update();
+
+    // State cycler (mockup-only)
+    const preview = document.getElementById('preview');
+    document.querySelectorAll('.state-demo button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.state-demo button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        const s = b.dataset.state;
+        preview.classList.remove('empty', 'loading', 'zero');
+        if (s === 'empty')   preview.classList.add('empty');
+        if (s === 'loading') preview.classList.add('loading');
+        if (s === 'zero') {
+          preview.classList.add('zero');
+          document.getElementById('prev-total').textContent = '0';
+          document.querySelector('.preview-label').textContent = 'crimes reported · a quiet week ✦';
+          document.querySelector('.preview-sub').textContent = 'Nothing reported in your area in the last 7 days.';
+        } else if (s === 'data') {
+          document.querySelector('.preview-label').textContent = 'crimes reported';
+          update();
+        }
+      });
+    });
+
+    document.getElementById('signup').addEventListener('submit', (e) => {
+      e.preventDefault();
+      alert('Mockup only — real submit goes to /signup');
+    });
+
+    // Address autocomplete (cosmetic)
+    const acList = document.getElementById('ac-list');
+    document.getElementById('addr').addEventListener('focus', () => acList.style.display = 'block');
+    document.querySelectorAll('.ac-list li').forEach(li => {
+      li.addEventListener('click', () => {
+        document.getElementById('addr').value = li.querySelector('strong').textContent;
+        acList.style.display = 'none';
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.ac-wrap')) acList.style.display = 'none';
+    });
+  </script>
+
+</body>
+</html>

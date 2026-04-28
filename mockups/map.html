@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Map — wswdy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+
+    /* Compact corner mark */
+    .corner-mark {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      z-index: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-md);
+      padding: 0.55rem 0.85rem 0.55rem 0.7rem;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      font-size: 0.84rem;
+      color: var(--ink);
+      text-decoration: none;
+      box-shadow: var(--shadow-sm);
+      transition: border-color 0.15s;
+    }
+    .corner-mark:hover { border-color: var(--ink); }
+    .corner-mark::before {
+      content: '';
+      width: 10px; height: 10px;
+      background: var(--t1);
+      border-radius: 3px;
+      transform: rotate(45deg);
+      box-shadow: 0 0 0 1px var(--ink) inset;
+    }
+
+    /* Floating control panel */
+    .panel {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 600;
+      width: 340px;
+      max-width: calc(100vw - 2rem);
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      font-family: var(--font-body);
+    }
+
+    .panel-head {
+      padding: 1.1rem 1.2rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--ink-3);
+      margin-bottom: 0.3rem;
+    }
+    .panel-title {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.35rem;
+      letter-spacing: -0.025em;
+      line-height: 1.1;
+      margin: 0 0 0.5rem;
+      color: var(--ink);
+    }
+    .panel-title .accent {
+      color: var(--t1);
+    }
+    .panel-meta {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--ink-3);
+      line-height: 1.4;
+    }
+    .panel-meta strong {
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    /* Time toggle */
+    .window {
+      padding: 1rem 1.2rem 1.1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .window-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--ink-3);
+      margin-bottom: 0.55rem;
+    }
+    .toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      padding: 4px;
+      background: var(--surface-2);
+      border-radius: var(--r-md);
+      gap: 0;
+      position: relative;
+    }
+    .toggle button {
+      padding: 0.65rem 0;
+      font-family: var(--font-body);
+      font-weight: 500;
+      font-size: 0.84rem;
+      color: var(--ink-3);
+      background: transparent;
+      border-radius: var(--r-sm);
+      transition: all 0.18s;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.05rem;
+    }
+    .toggle button .num {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .toggle button .lbl {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      color: var(--ink-4);
+      transition: color 0.18s;
+    }
+    .toggle button.active {
+      background: var(--surface);
+      box-shadow: 0 1px 2px rgba(10, 10, 10, 0.06);
+    }
+    .toggle button.active .lbl { color: var(--ink-3); }
+    .toggle button:hover:not(.active) { color: var(--ink); }
+
+    /* Legend */
+    .legend {
+      padding: 1rem 1.2rem;
+    }
+    .legend-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.7rem;
+    }
+    .legend-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--ink-3);
+    }
+    .legend-total {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+    .legend-total .unit {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--ink-4);
+      margin-left: 0.3rem;
+      font-weight: 400;
+    }
+    .legend-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.88rem;
+      padding: 0.45rem 0;
+      border-top: 1px solid var(--border);
+    }
+    .legend-row:first-child { border-top: 0; }
+    .legend-row .swatch {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .legend-row .lbl { color: var(--ink-2); font-weight: 500; }
+    .legend-row .examples {
+      font-size: 0.76rem;
+      color: var(--ink-4);
+      margin-left: 0.2rem;
+    }
+    .legend-row .num {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .panel-foot {
+      padding: 0.7rem 1.2rem;
+      background: var(--surface-2);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--ink-4);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Map */
+    #map {
+      position: absolute;
+      inset: 0;
+      background: var(--surface-2);
+    }
+
+    /* Markers */
+    .marker {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--surface);
+      cursor: pointer;
+      transition: transform 0.18s, box-shadow 0.18s;
+      box-shadow: 0 2px 6px rgba(10, 10, 10, 0.25);
+    }
+    .marker:hover {
+      transform: scale(1.3);
+      box-shadow: 0 4px 12px rgba(10, 10, 10, 0.35);
+    }
+    .marker.t1 { background: var(--t1); }
+    .marker.t2 { background: var(--t2); }
+    .marker.t3 { background: var(--t3); }
+    .marker.t4 { background: var(--t4); }
+
+    .home-marker {
+      width: 26px; height: 26px;
+      background: var(--ink);
+      border: 3px solid var(--surface);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0 5px rgba(10, 10, 10, 0.08), 0 4px 12px rgba(10, 10, 10, 0.25);
+      position: relative;
+    }
+    .home-marker::after {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--surface);
+      border-radius: 50%;
+    }
+    .home-marker::before {
+      content: '';
+      position: absolute;
+      inset: -10px;
+      border: 1.5px solid var(--ink);
+      opacity: 0.15;
+      border-radius: 50%;
+      animation: ringPulse 3s ease-out infinite;
+    }
+    @keyframes ringPulse {
+      0%   { transform: scale(0.8); opacity: 0.4; }
+      100% { transform: scale(2);   opacity: 0;   }
+    }
+
+    /* Leaflet popup overrides */
+    .leaflet-popup-content-wrapper {
+      background: var(--surface);
+      color: var(--ink);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-md);
+      box-shadow: var(--shadow-md);
+      padding: 0;
+    }
+    .leaflet-popup-content {
+      margin: 0.85rem 1.05rem;
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      min-width: 230px;
+    }
+    .leaflet-popup-tip {
+      background: var(--surface);
+      box-shadow: 1px 1px 0 var(--border-2);
+    }
+    .leaflet-popup-close-button {
+      color: var(--ink-3) !important;
+      font-size: 1.1rem !important;
+      padding: 6px 8px 0 0 !important;
+    }
+
+    .pop-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      color: var(--ink-3);
+      margin-bottom: 0.3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .pop-eyebrow .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .pop-title {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: var(--ink);
+      margin: 0 0 0.55rem;
+      letter-spacing: -0.02em;
+    }
+    .pop-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.6rem;
+      padding: 0.32rem 0;
+      border-top: 1px solid var(--border);
+      font-size: 0.84rem;
+    }
+    .pop-row .k {
+      font-family: var(--font-mono);
+      color: var(--ink-3);
+      font-size: 0.7rem;
+    }
+    .pop-row .v {
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    /* Leaflet UI */
+    .leaflet-control-attribution {
+      background: rgba(255, 255, 255, 0.85) !important;
+      color: var(--ink-4) !important;
+      font-family: var(--font-mono) !important;
+      font-size: 0.66rem !important;
+      padding: 4px 8px !important;
+    }
+    .leaflet-control-attribution a { color: var(--ink-3) !important; }
+    .leaflet-control-zoom {
+      border: 1px solid var(--border-2) !important;
+      border-radius: var(--r-md) !important;
+      box-shadow: var(--shadow-sm) !important;
+      overflow: hidden;
+    }
+    .leaflet-control-zoom a {
+      background: var(--surface) !important;
+      color: var(--ink) !important;
+      border: 0 !important;
+      border-bottom: 1px solid var(--border) !important;
+      font-family: var(--font-body) !important;
+      font-weight: 400 !important;
+      font-size: 1.1rem !important;
+      width: 32px !important;
+      height: 32px !important;
+      line-height: 32px !important;
+    }
+    .leaflet-control-zoom a:last-child { border-bottom: 0 !important; }
+    .leaflet-control-zoom a:hover { background: var(--surface-2) !important; }
+
+    /* Radius circle */
+    .radius-circle {
+      stroke: var(--ink);
+      stroke-dasharray: 5 4;
+      stroke-width: 1.4;
+      fill: var(--ink);
+      fill-opacity: 0.025;
+    }
+
+    @media (max-width: 600px) {
+      .panel {
+        width: calc(100vw - 2rem);
+        top: auto;
+        bottom: 1rem;
+        right: 1rem;
+        left: 1rem;
+        max-height: 60vh;
+        overflow-y: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <a href="index.html" class="corner-mark">/wswdy</a>
+
+  <aside class="panel">
+    <div class="panel-head">
+      <div class="panel-eyebrow">briefing for</div>
+      <h1 class="panel-title">Jane <span class="accent">·</span> Logan Circle</h1>
+      <div class="panel-meta">
+        <strong class="tnum">1,000m</strong> around 1500 14th St NW
+      </div>
+    </div>
+
+    <div class="window">
+      <div class="window-label">window</div>
+      <div class="toggle" id="toggle">
+        <button class="active" data-window="24h"><span class="num">7</span><span class="lbl">24h</span></button>
+        <button data-window="7d"><span class="num">23</span><span class="lbl">7d</span></button>
+        <button data-window="30d"><span class="num">94</span><span class="lbl">30d</span></button>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-head">
+        <span class="legend-eyebrow">reports shown</span>
+        <span class="legend-total"><span id="legend-total">7</span><span class="unit">total</span></span>
+      </div>
+      <div class="legend-rows" id="legend-rows">
+        <div class="legend-row">
+          <span class="swatch" style="background: var(--t1);"></span>
+          <span class="lbl">Violent</span>
+          <span class="examples">homicide, armed robbery</span>
+          <span class="num" id="leg-1">1</span>
+        </div>
+        <div class="legend-row">
+          <span class="swatch" style="background: var(--t2);"></span>
+          <span class="lbl">Property</span>
+          <span class="examples">burglary, arson</span>
+          <span class="num" id="leg-2">0</span>
+        </div>
+        <div class="legend-row">
+          <span class="swatch" style="background: var(--t3);"></span>
+          <span class="lbl">Vehicle</span>
+          <span class="examples">stolen car</span>
+          <span class="num" id="leg-3">1</span>
+        </div>
+        <div class="legend-row">
+          <span class="swatch" style="background: var(--t4);"></span>
+          <span class="lbl">Petty</span>
+          <span class="examples">from auto, shoplifting</span>
+          <span class="num" id="leg-4">5</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-foot">
+      <span>source: DC MPD</span>
+      <span>fetched <span class="tnum">05:31 ET</span></span>
+    </div>
+  </aside>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const HOME = [38.9097, -77.0319];
+    const RADIUS_M = 1000;
+
+    // Today is 2026-04-28 (Tue); "yesterday" = 27 Apr (Mon)
+    const CRIMES = {
+      '24h': [
+        [38.9117, -77.0322, 1, 'Armed robbery',        '1400 block of P St NW',         'Mon 27 Apr · 21:14'],
+        [38.9081, -77.0298, 3, 'Motor vehicle theft',  '1200 block of 12th St NW',      'Mon 27 Apr · 02:30'],
+        [38.9105, -77.0348, 4, 'Theft from auto',      '1500 block of 15th St NW',      'Mon 27 Apr · 03:48'],
+        [38.9072, -77.0331, 4, 'Theft from auto',      '1100 block of 14th St NW',      'Mon 27 Apr · 04:22'],
+        [38.9128, -77.0277, 4, 'Theft / other',        '1500 block of 11th St NW',      'Mon 27 Apr · 11:05'],
+        [38.9089, -77.0359, 4, 'Theft from auto',      '1200 block of 16th St NW',      'Mon 27 Apr · 14:30'],
+        [38.9112, -77.0361, 4, 'Theft / other',        '1500 block of 16th St NW',      'Mon 27 Apr · 17:50'],
+      ],
+      '7d': [
+        [38.9117, -77.0322, 1, 'Armed robbery',        '1400 block of P St NW',         'Mon 27 Apr · 21:14'],
+        [38.9094, -77.0288, 1, 'Assault w/ weapon',    '1300 block of 11th St NW',      'Wed 22 Apr · 23:02'],
+        [38.9061, -77.0313, 2, 'Burglary',             '1000 block of 13th St NW',      'Tue 21 Apr · 13:10'],
+        [38.9131, -77.0335, 2, 'Burglary',             '1600 block of 14th St NW',      'Thu 23 Apr · 09:25'],
+        [38.9081, -77.0298, 3, 'Motor vehicle theft',  '1200 block of 12th St NW',      'Mon 27 Apr · 02:30'],
+        [38.9120, -77.0296, 3, 'Motor vehicle theft',  '1500 block of 12th St NW',      'Sat 25 Apr · 19:40'],
+        [38.9069, -77.0345, 3, 'Motor vehicle theft',  '1100 block of 15th St NW',      'Fri 24 Apr · 03:18'],
+        [38.9105, -77.0348, 4, 'Theft from auto',      '1500 block of 15th St NW',      'Mon 27 Apr · 03:48'],
+        [38.9072, -77.0331, 4, 'Theft from auto',      '1100 block of 14th St NW',      'Mon 27 Apr · 04:22'],
+        [38.9128, -77.0277, 4, 'Theft / other',        '1500 block of 11th St NW',      'Mon 27 Apr · 11:05'],
+        [38.9089, -77.0359, 4, 'Theft from auto',      '1200 block of 16th St NW',      'Mon 27 Apr · 14:30'],
+        [38.9112, -77.0361, 4, 'Theft / other',        '1500 block of 16th St NW',      'Mon 27 Apr · 17:50'],
+        [38.9100, -77.0289, 4, 'Theft from auto',      '1400 block of 11th St NW',      'Sun 26 Apr · 02:11'],
+        [38.9075, -77.0307, 4, 'Theft / other',        '1200 block of 13th St NW',      'Sun 26 Apr · 14:33'],
+        [38.9136, -77.0309, 4, 'Theft from auto',      '1700 block of 13th St NW',      'Sat 25 Apr · 04:56'],
+        [38.9082, -77.0356, 4, 'Theft from auto',      '1200 block of 16th St NW',      'Sat 25 Apr · 22:18'],
+        [38.9114, -77.0282, 4, 'Theft / other',        '1500 block of 11th St NW',      'Fri 24 Apr · 12:40'],
+        [38.9067, -77.0322, 4, 'Theft from auto',      '1100 block of 14th St NW',      'Fri 24 Apr · 23:30'],
+        [38.9123, -77.0345, 4, 'Theft / other',        '1600 block of 15th St NW',      'Thu 23 Apr · 16:07'],
+        [38.9090, -77.0273, 4, 'Theft from auto',      '1300 block of 11th St NW',      'Thu 23 Apr · 05:50'],
+        [38.9101, -77.0334, 4, 'Theft / other',        '1400 block of 14th St NW',      'Wed 22 Apr · 18:22'],
+        [38.9085, -77.0367, 4, 'Theft from auto',      '1200 block of 17th St NW',      'Tue 21 Apr · 02:14'],
+        [38.9132, -77.0292, 4, 'Theft / other',        '1700 block of 12th St NW',      'Tue 21 Apr · 13:55'],
+      ],
+      '30d': [],
+    };
+
+    // Synthesize a 30d window — pseudo-random dates spread across the past month
+    (function() {
+      const seed = CRIMES['7d'];
+      const months = ['Apr', 'Mar'];
+      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      // Build a pool of (day-name, day-num, month) tuples covering 30 Mar -> 27 Apr
+      const pool = [];
+      // April 1..27
+      for (let d = 1; d <= 27; d++) {
+        // 2026-04-01 was a Wednesday
+        const dow = days[(2 + (d - 1)) % 7];
+        pool.push([dow, d, 'Apr']);
+      }
+      // March 30..31
+      pool.push(['Mon', 30, 'Mar']);
+      pool.push(['Tue', 31, 'Mar']);
+
+      function rTime() {
+        const h = Math.floor(Math.random() * 24);
+        const m = Math.floor(Math.random() * 60);
+        return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+      }
+      const arr = [];
+      for (let i = 0; i < 94; i++) {
+        const base = seed[i % seed.length];
+        const jitter = () => (Math.random() - 0.5) * 0.012;
+        const [dow, dnum, mon] = pool[Math.floor(Math.random() * pool.length)];
+        const stamp = `${dow} ${dnum} ${mon} · ${rTime()}`;
+        arr.push([base[0] + jitter(), base[1] + jitter(), base[2], base[3], base[4], stamp]);
+      }
+      CRIMES['30d'] = arr;
+    })();
+
+    const map = L.map('map', {
+      center: HOME,
+      zoom: 15,
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    // Modern light tiles
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap · © CARTO · MPD DC',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(map);
+
+    const homeIcon = L.divIcon({
+      className: '',
+      html: '<div class="home-marker" title="Home"></div>',
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+    });
+    L.marker(HOME, { icon: homeIcon, zIndexOffset: 1000 }).addTo(map)
+      .bindTooltip('Home', { direction: 'top', offset: [0, -12] });
+
+    L.circle(HOME, {
+      radius: RADIUS_M,
+      className: 'radius-circle',
+    }).addTo(map);
+
+    let markerLayer = L.layerGroup().addTo(map);
+
+    function tierColor(t) {
+      const m = { 1: 'var(--t1)', 2: 'var(--t2)', 3: 'var(--t3)', 4: 'var(--t4)' };
+      return m[t];
+    }
+    function tierLabel(t) {
+      return ['', 'Violent', 'Property', 'Vehicle', 'Petty theft'][t];
+    }
+
+    function render(window) {
+      markerLayer.clearLayers();
+      const data = CRIMES[window];
+      const counts = [0, 0, 0, 0];
+
+      data.forEach(([lat, lon, tier, offense, block, time]) => {
+        counts[tier - 1]++;
+        const icon = L.divIcon({
+          className: '',
+          html: `<div class="marker t${tier}"></div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        });
+        const m = L.marker([lat, lon], { icon }).addTo(markerLayer);
+        const popup = `
+          <div>
+            <div class="pop-eyebrow"><span class="dot" style="background: ${tierColor(tier)}"></span>${tierLabel(tier)}</div>
+            <div class="pop-title">${offense}</div>
+            <div class="pop-row"><span class="k">where</span><span class="v">${block}</span></div>
+            <div class="pop-row"><span class="k">when</span><span class="v">${time}</span></div>
+          </div>`;
+        m.bindPopup(popup, { closeButton: true, autoPan: true });
+      });
+
+      document.getElementById('legend-total').textContent = data.length;
+      document.getElementById('leg-1').textContent = counts[0];
+      document.getElementById('leg-2').textContent = counts[1];
+      document.getElementById('leg-3').textContent = counts[2];
+      document.getElementById('leg-4').textContent = counts[3];
+    }
+
+    document.querySelectorAll('#toggle button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#toggle button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        render(b.dataset.window);
+      });
+    });
+
+    render('24h');
+  </script>
+
+</body>
+</html>
