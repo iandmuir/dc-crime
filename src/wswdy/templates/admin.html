@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}admin · wswdy{% endblock %}
+{% block nav_meta %}admin{% endblock %}
+{% block content %}
+<main class="page fade-in" style="max-width: 980px;">
+  <h1 class="display" style="font-size: 2rem; margin: 0 0 1.5rem;">Admin</h1>
+
+  <div class="card" style="margin-bottom:1.25rem;">
+    <h2 class="card-title">Subscribers</h2>
+    <div class="summary">
+      <div class="summary-row"><span class="k">approved</span><span class="v tnum">{{ approved|length }}</span></div>
+      <div class="summary-row"><span class="k">pending</span><span class="v tnum">{{ pending|length }}</span></div>
+      <div class="summary-row"><span class="k">rejected</span><span class="v tnum">{{ rejected|length }}</span></div>
+      <div class="summary-row"><span class="k">unsubscribed</span><span class="v tnum">{{ unsubscribed|length }}</span></div>
+    </div>
+    {% if pending %}
+    <h3 class="card-eyebrow" style="margin-top:1.25rem;">pending</h3>
+    <ul style="list-style:none; padding:0; margin: 0.5rem 0 0;">
+      {% for s in pending %}
+      <li style="padding:0.4rem 0; border-bottom: 1px solid var(--border);">
+        <strong>{{ s.display_name }}</strong> · {{ s.preferred_channel }} · {{ s.address_text }}
+        ({{ s.radius_m }}m) · <span class="mono" style="font-size:.78rem;">{{ s.created_at }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-bottom:1.25rem;">
+    <h2 class="card-title">MPD fetch</h2>
+    {% if last_fetch %}
+      <div class="summary-row"><span class="k">status</span><span class="v">{{ last_fetch.status }}</span></div>
+      <div class="summary-row"><span class="k">when</span><span class="v tnum">{{ last_fetch.fetched_at }}</span></div>
+      <div class="summary-row"><span class="k">added / updated</span><span class="v tnum">+{{ last_fetch.crimes_added or 0 }} / ~{{ last_fetch.crimes_updated or 0 }}</span></div>
+      {% if last_fetch.error %}<div class="summary-row"><span class="k">error</span><span class="v">{{ last_fetch.error }}</span></div>{% endif %}
+    {% else %}<p>No fetches recorded.</p>{% endif %}
+  </div>
+
+  <div class="card" style="margin-bottom:1.25rem;">
+    <h2 class="card-title">Send volume (last 7 days)</h2>
+    <table style="width:100%; border-collapse:collapse;">
+      <thead><tr><th style="text-align:left;">Date</th><th>Sent</th><th>Failed</th><th>Skipped</th></tr></thead>
+      <tbody>
+      {% for r in send_volume %}
+      <tr><td class="tnum">{{ r.send_date }}</td><td class="tnum">{{ r.sent }}</td><td class="tnum">{{ r.failed }}</td><td class="tnum">{{ r.skipped }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">Recent failures</h2>
+    {% if failures %}
+    <ul style="list-style:none; padding:0;">
+      {% for f in failures %}
+      <li style="padding:0.4rem 0; border-bottom: 1px solid var(--border);">
+        <span class="mono" style="font-size:.78rem;">{{ f.sent_at }}</span> ·
+        {{ f.subscriber_id }} ({{ f.channel }}): {{ f.error }}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p style="color: var(--ink-3);">No failures.</p>{% endif %}
+  </div>
+</main>
+{% endblock %}
