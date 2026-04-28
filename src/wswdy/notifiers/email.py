@@ -1,5 +1,8 @@
 """SMTP-backed notifier."""
 from email.message import EmailMessage
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from pathlib import Path
 
 import aiosmtplib
@@ -21,13 +24,8 @@ class EmailNotifier:
 
     async def send(self, *, recipient: str, subject: str, text: str,
                    image_path: Path | None) -> SendResult:
-        msg = EmailMessage()
-        msg["From"] = self.sender
-        msg["To"] = recipient
-        msg["Subject"] = subject
-
         if image_path is not None:
-            # Multipart: plain-text fallback + HTML body with inline image via cid:preview
+            # Build multipart/related > multipart/alternative + inline image
             html = (
                 f"<html><body style='font-family: -apple-system, system-ui, sans-serif;"
                 f" background:#FAFAF6; padding:24px;'>"
@@ -38,15 +36,24 @@ class EmailNotifier:
                 f"max-width:100%;border:1px solid #E5E3DC;border-radius:10px;' />"
                 f"</body></html>"
             )
-            msg.set_content(text)  # plain-text fallback
-            msg.add_alternative(html, subtype="html")
+            related = MIMEMultipart("related")
+            alternative = MIMEMultipart("alternative")
+            alternative.attach(MIMEText(text, "plain"))
+            alternative.attach(MIMEText(html, "html"))
+            related.attach(alternative)
             # Attach inline image referenced as cid:preview
-            data = image_path.read_bytes()
-            msg.get_payload()[1].add_related(
-                data, maintype="image", subtype="png", cid="<preview>",
-            )
+            img_part = MIMEImage(image_path.read_bytes(), "png")
+            img_part.add_header("Content-ID", "<preview>")
+            img_part.add_header("Content-Disposition", "inline")
+            related.attach(img_part)
+            msg: EmailMessage | MIMEMultipart = related
         else:
+            msg = EmailMessage()
             msg.set_content(text)
+
+        msg["From"] = self.sender
+        msg["To"] = recipient
+        msg["Subject"] = subject
 
         try:
             await aiosmtplib.send(
