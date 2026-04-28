@@ -36,3 +36,10 @@ def test_list_recent(db):
     record(db, alert_type="y", message="m2")
     rows = list_recent(db, limit=10)
     assert len(rows) == 2
+
+
+def test_list_recent_excludes_suppression_markers(db):
+    record(db, alert_type="x", message="m1")
+    set_suppressed_until(db, "x", (_now() + timedelta(hours=1)).isoformat())
+    rows = list_recent(db, limit=10)
+    assert len(rows) == 1  # suppression marker excluded

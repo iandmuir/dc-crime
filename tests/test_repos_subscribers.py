@@ -70,3 +70,15 @@ def test_invalid_status_raises(db):
     _new(db)
     with pytest.raises(ValueError):
         set_status(db, "abc12345", "WHATEVER")
+
+
+def test_list_by_status_returns_correct_rows(db):
+    _new(db, sid="a"); _new(db, sid="b"); _new(db, sid="c")
+    set_status(db, "a", "APPROVED")
+    rows = list_by_status(db, "APPROVED")
+    assert len(rows) == 1 and rows[0]["id"] == "a"
+
+
+def test_list_by_status_invalid_raises(db):
+    with pytest.raises(ValueError):
+        list_by_status(db, "BOGUS")

@@ -27,6 +27,6 @@ def last_successful(db: sqlite3.Connection) -> dict | None:
 
 def last_attempt(db: sqlite3.Connection) -> dict | None:
     row = db.execute(
-        "SELECT * FROM fetch_log ORDER BY fetched_at DESC LIMIT 1"
+        "SELECT * FROM fetch_log ORDER BY fetched_at DESC, id DESC LIMIT 1"
     ).fetchone()
     return dict(row) if row else None

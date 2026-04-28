@@ -1,4 +1,4 @@
-from wswdy.repos.fetch_log import record_success, record_failure, last_successful
+from wswdy.repos.fetch_log import record_success, record_failure, last_successful, last_attempt
 
 
 def test_record_success_and_query(db):
@@ -21,3 +21,11 @@ def test_last_successful_returns_most_recent(db):
     record_success(db, added=5, updated=1)
     last = last_successful(db)
     assert last["crimes_added"] == 5
+
+
+def test_last_attempt_returns_most_recent_regardless_of_status(db):
+    record_success(db, added=1, updated=0)
+    record_failure(db, error="network timeout")
+    last = last_attempt(db)
+    assert last["status"] == "failed"
+    assert last["error"] == "network timeout"

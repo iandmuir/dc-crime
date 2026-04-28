@@ -40,7 +40,7 @@ def is_suppressed(db: sqlite3.Connection, alert_type: str) -> bool:
 def list_recent(db: sqlite3.Connection, limit: int = 20) -> list[dict]:
     rows = db.execute(
         """SELECT * FROM admin_alerts
-            WHERE message != '(suppression marker)'
+            WHERE suppressed_until IS NULL
          ORDER BY created_at DESC LIMIT ?""",
         (limit,),
     ).fetchall()
