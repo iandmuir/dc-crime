@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}What shit went down yesterday?{% endblock %}
+{% block content %}
+<main class="page fade-in">
+  <section class="hero">
+    <div class="hero-eyebrow">A daily 6am text · MPD-sourced</div>
+    <h1 class="display hero-title">
+      What <span class="accent">shit</span> went down yesterday?
+    </h1>
+    <p class="hero-sub">
+      A quiet morning summary of crimes reported within walking distance of your home in DC.
+      Email or WhatsApp. Free. No ads. Run by a neighbor.
+    </p>
+  </section>
+
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+  <form id="signup" class="card" method="post" action="/signup">
+    <h2 class="card-title">Get the briefing</h2>
+    <p class="card-sub">Two minutes. We'll review and confirm by email.</p>
+
+    <div class="field">
+      <label class="field-label" for="name">First name</label>
+      <input id="name" name="display_name" class="field-input" type="text"
+             placeholder="Jane" autocomplete="given-name" required />
+    </div>
+
+    <div class="field ac-wrap">
+      <label class="field-label" for="addr">Home address</label>
+      <input id="addr" name="address_text" class="field-input" type="text"
+             autocomplete="off" required />
+      <input type="hidden" name="lat" id="lat" />
+      <input type="hidden" name="lon" id="lon" />
+      <ul class="ac-list" id="ac-list" hidden></ul>
+    </div>
+
+    <div class="field">
+      <label class="field-label">How should we reach you?</label>
+      <div class="seg" id="seg">
+        <input type="radio" name="preferred_channel" id="ch-email" value="email" checked />
+        <label for="ch-email">Email</label>
+        <input type="radio" name="preferred_channel" id="ch-wa" value="whatsapp" />
+        <label for="ch-wa">WhatsApp</label>
+        <span class="seg-thumb"></span>
+      </div>
+    </div>
+
+    <div class="field" id="email-field">
+      <label class="field-label" for="email">Email address</label>
+      <input id="email" name="email" class="field-input" type="email"
+             placeholder="jane@example.com" />
+    </div>
+    <div class="field" id="phone-field" hidden>
+      <label class="field-label" for="phone">Phone (E.164)</label>
+      <input id="phone" name="phone" class="field-input" type="tel"
+             placeholder="+1 202 555 0123" />
+    </div>
+
+    <div class="field">
+      <div class="radius-row">
+        <label class="field-label" style="margin: 0;">How far should we look?</label>
+        <div class="radius-value">
+          <span id="radius-num">1,000</span><span class="unit">m</span>
+        </div>
+      </div>
+      <div class="slider">
+        <div class="slider-track"><div class="slider-fill" id="slider-fill" style="width: 44%;"></div></div>
+        <input type="range" name="radius_m" min="200" max="2000" step="100" value="1000" id="radius" />
+        <div class="slider-thumb" id="slider-thumb" style="left: 44%;"></div>
+      </div>
+      <div class="slider-labels"><span>200m</span><span>1,000m</span><span>2,000m</span></div>
+    </div>
+
+    <div class="preview empty" id="preview">
+      <div class="preview-eyebrow">
+        <span class="l">Within <span id="prev-r" class="tnum">1,000</span>m · last 7 days</span>
+        <span class="r">live</span>
+      </div>
+      <div class="preview-headline">
+        <span class="preview-number" id="prev-total">—</span>
+        <span class="preview-label">crimes reported</span>
+      </div>
+      <div class="preview-sub">≈ <span class="tnum" id="prev-avg">—</span> per day on average</div>
+      <div class="preview-bar" aria-hidden="true">
+        <span style="background: var(--t1);"></span>
+        <span style="background: var(--t2);"></span>
+        <span style="background: var(--t3);"></span>
+        <span style="background: var(--t4);"></span>
+      </div>
+      <div class="preview-legend">
+        <div class="preview-legend-item"><span class="tier-dot t1"></span><span class="lbl">Violent</span><span class="num">—</span></div>
+        <div class="preview-legend-item"><span class="tier-dot t2"></span><span class="lbl">Serious property</span><span class="num">—</span></div>
+        <div class="preview-legend-item"><span class="tier-dot t3"></span><span class="lbl">Vehicle</span><span class="num">—</span></div>
+        <div class="preview-legend-item"><span class="tier-dot t4"></span><span class="lbl">Petty</span><span class="num">—</span></div>
+      </div>
+      <div class="preview-empty-msg">
+        Enter an address above to preview crime activity in your area.
+      </div>
+    </div>
+
+    <div class="submit-area">
+      <button type="submit" class="btn btn-primary btn-block btn-lg">
+        Request access &nbsp;→
+      </button>
+      <p class="submit-fineprint">
+        We'll email you to confirm. Daily messages start the morning after we approve.
+        Unsubscribe anytime — one click, no questions.
+      </p>
+    </div>
+  </form>
+
+  <footer class="footer">
+    <div>data: <a href="https://opendata.dc.gov/datasets/" class="tlink">DC MPD open feed</a></div>
+    <div>dccrime.iandmuir.com</div>
+  </footer>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Channel toggle
+  const seg = document.getElementById('seg');
+  const emailField = document.getElementById('email-field');
+  const phoneField = document.getElementById('phone-field');
+  document.querySelectorAll('input[name=preferred_channel]').forEach(r => {
+    r.addEventListener('change', () => {
+      const isWA = r.value === 'whatsapp' && r.checked;
+      seg.classList.toggle('is-whatsapp', isWA);
+      emailField.hidden = isWA;
+      phoneField.hidden = !isWA;
+    });
+  });
+
+  // Radius slider
+  const r = document.getElementById('radius');
+  const num = document.getElementById('radius-num');
+  const fill = document.getElementById('slider-fill');
+  const thumb = document.getElementById('slider-thumb');
+  const prevR = document.getElementById('prev-r');
+  let debounceTimer;
+
+  function updateSlider() {
+    const v = +r.value;
+    const pct = ((v - 200) / 1800) * 100;
+    num.textContent = v.toLocaleString('en-US');
+    prevR.textContent = v.toLocaleString('en-US');
+    fill.style.width = pct + '%';
+    thumb.style.left = pct + '%';
+    schedulePreview();
+  }
+  r.addEventListener('input', updateSlider);
+  updateSlider();
+
+  // Address autocomplete
+  const addrInput = document.getElementById('addr');
+  const acList = document.getElementById('ac-list');
+  const latInput = document.getElementById('lat');
+  const lonInput = document.getElementById('lon');
+  let acTimer;
+  addrInput.addEventListener('input', () => {
+    clearTimeout(acTimer);
+    acTimer = setTimeout(async () => {
+      const q = addrInput.value.trim();
+      if (q.length < 3) { acList.hidden = true; return; }
+      const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      acList.innerHTML = data.results.map(item =>
+        `<li data-lat="${item.lat}" data-lon="${item.lon}"><span class="pin"></span>
+         <span class="ac-main"><strong>${item.display}</strong></span></li>`).join('');
+      acList.hidden = data.results.length === 0;
+      acList.querySelectorAll('li').forEach(li => {
+        li.addEventListener('click', () => {
+          addrInput.value = li.querySelector('strong').textContent;
+          latInput.value = li.dataset.lat;
+          lonInput.value = li.dataset.lon;
+          acList.hidden = true;
+          schedulePreview();
+        });
+      });
+    }, 300);
+  });
+
+  // Live preview
+  function schedulePreview() {
+    clearTimeout(debounceTimer);
+    if (!latInput.value || !lonInput.value) return;
+    const preview = document.getElementById('preview');
+    preview.classList.remove('empty', 'zero');
+    preview.classList.add('loading');
+    debounceTimer = setTimeout(async () => {
+      const r = await fetch('/api/preview', {
+        method: 'POST', headers: {'content-type': 'application/json'},
+        body: JSON.stringify({lat: +latInput.value, lon: +lonInput.value,
+                              radius_m: +document.getElementById('radius').value}),
+      });
+      preview.classList.remove('loading');
+      if (!r.ok) { preview.classList.add('empty'); return; }
+      const d = await r.json();
+      const total = d.total;
+      document.getElementById('prev-total').textContent = total;
+      document.getElementById('prev-avg').textContent = d.avg_per_day.toFixed(1);
+      const sum = total || 1;
+      const bars = document.querySelectorAll('.preview-bar > span');
+      bars[0].style.width = (d.by_tier['1'] / sum * 100) + '%';
+      bars[1].style.width = (d.by_tier['2'] / sum * 100) + '%';
+      bars[2].style.width = (d.by_tier['3'] / sum * 100) + '%';
+      bars[3].style.width = (d.by_tier['4'] / sum * 100) + '%';
+      const nums = document.querySelectorAll('.preview-legend-item .num');
+      nums[0].textContent = d.by_tier['1'];
+      nums[1].textContent = d.by_tier['2'];
+      nums[2].textContent = d.by_tier['3'];
+      nums[3].textContent = d.by_tier['4'];
+      if (total === 0) preview.classList.add('zero');
+    }, 300);
+  }
+</script>
+{% endblock %}

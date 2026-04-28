@@ -1,15 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-import wswdy.config as _cfg
 from wswdy.main import create_app
-
-
-@pytest.fixture(autouse=True)
-def _clear_settings_cache():
-    _cfg.get_settings.cache_clear()
-    yield
-    _cfg.get_settings.cache_clear()
 
 
 def test_healthz_ok(monkeypatch, tmp_path):
