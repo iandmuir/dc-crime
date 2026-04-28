@@ -9,7 +9,7 @@ def test_haversine_zero_distance():
 def test_haversine_known_distance():
     # Logan Circle (38.9097,-77.0319) to Lincoln Memorial (38.8893,-77.0502) ~ 2.65 km
     d = haversine_m(38.9097, -77.0319, 38.8893, -77.0502)
-    assert 2400 <= d <= 2900
+    assert d == pytest.approx(2766, abs=5)  # ~2.766 km Logan Circle → Lincoln Memorial
 
 
 def test_in_dc_bbox_logan_circle():

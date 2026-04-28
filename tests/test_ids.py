@@ -5,7 +5,7 @@ from wswdy.ids import new_subscriber_id
 def test_new_subscriber_id_shape():
     sid = new_subscriber_id()
     assert isinstance(sid, str)
-    assert 6 <= len(sid) <= 16
+    assert len(sid) == 8  # secrets.token_urlsafe(6) → 6 bytes → 8 base64url chars
     assert re.fullmatch(r"[A-Za-z0-9_-]+", sid)
 
 

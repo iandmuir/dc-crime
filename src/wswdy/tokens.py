@@ -46,7 +46,10 @@ def verify(secret: str, token: str, *, purpose: str) -> dict[str, Any]:
     if not hmac.compare_digest(expected_sig, actual_sig):
         raise TokenError("invalid signature")
 
-    payload = json.loads(raw)
+    try:
+        payload = json.loads(raw)
+    except ValueError as e:
+        raise TokenError(f"malformed token payload: {e}") from e
     if payload.get("p") != purpose:
         raise TokenError(f"wrong purpose: expected {purpose}, got {payload.get('p')}")
 
