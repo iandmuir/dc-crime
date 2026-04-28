@@ -1,12 +1,12 @@
 """In-memory notifier for tests."""
 from pathlib import Path
 
-from wswdy.notifiers.base import Notifier, SendResult
+from wswdy.notifiers.base import SendResult
 
 
-class FakeNotifier(Notifier):
+class FakeNotifier:
     def __init__(self, fail_with: str | None = None):
-        self.sent: list[dict] = []
+        self.sent: list[dict[str, object]] = []
         self.fail_with = fail_with
 
     async def send(self, *, recipient: str, subject: str, text: str,
