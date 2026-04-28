@@ -47,9 +47,12 @@ async def run_daily_sends(
     mpd_warning = _is_feed_stale(db, now_iso=now_iso)
 
     sent = failed = skipped = 0
-    start_dt = datetime.fromisoformat(now_iso) - timedelta(hours=24)
+    now_dt = datetime.fromisoformat(now_iso)
+    if now_dt.tzinfo is None:
+        now_dt = now_dt.replace(tzinfo=datetime.UTC)
+    start_dt = now_dt - timedelta(hours=24)
     start_iso = start_dt.isoformat(timespec="seconds")
-    end_iso = now_iso
+    end_iso = now_dt.isoformat(timespec="seconds")
 
     if stagger:
         random.shuffle(actives)
@@ -129,4 +132,6 @@ def _is_feed_stale(db: sqlite3.Connection, *, now_iso: str) -> bool:
         return True
     last_dt = datetime.fromisoformat(last_ok["fetched_at"].replace("Z", "+00:00"))
     now_dt = datetime.fromisoformat(now_iso)
+    if now_dt.tzinfo is None:
+        now_dt = now_dt.replace(tzinfo=datetime.UTC)
     return (now_dt - last_dt) > timedelta(hours=24)
