@@ -50,3 +50,14 @@ async def test_alert_no_webhook_url_skips_webhook(db):
                      ha_webhook_url="", suppression_hours=6)
     await a.alert(alert_type="x", message="y")
     assert email.sent  # email still sent
+
+
+@respx.mock
+async def test_alert_webhook_failure_does_not_block_email(db):
+    """HA webhook failures are swallowed — email must still be delivered."""
+    email = FakeNotifier()
+    respx.post("https://ha.test/hook").mock(side_effect=httpx.ConnectError("refused"))
+    a = AdminAlerter(db=db, email=email, admin_email="admin@x",
+                     ha_webhook_url="https://ha.test/hook", suppression_hours=6)
+    await a.alert(alert_type="mpd_down", message="MPD is down")
+    assert email.sent  # email was sent despite webhook failure

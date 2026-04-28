@@ -59,6 +59,6 @@ class AdminAlerter:
                         self.ha_webhook_url,
                         json={"alert_type": alert_type, "message": message},
                     )
-            except Exception:
+            except Exception as exc:
                 # HA being down is not itself alert-worthy; email is already sent.
-                log.warning("HA webhook failed for alert_type=%s", alert_type)
+                log.warning("HA webhook failed for alert_type=%s: %s", alert_type, exc)
