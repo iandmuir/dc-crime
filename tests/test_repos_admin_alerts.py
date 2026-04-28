@@ -1,11 +1,15 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 from wswdy.repos.admin_alerts import (
-    record, is_suppressed, set_suppressed_until, list_recent,
+    is_suppressed,
+    list_recent,
+    record,
+    set_suppressed_until,
 )
 
 
 def _now():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def test_record_creates_row(db):

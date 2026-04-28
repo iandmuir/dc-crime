@@ -1,4 +1,4 @@
-from wswdy.repos.send_log import record, exists_for_today, recent_failures, send_volume_last_n_days
+from wswdy.repos.send_log import exists_for_today, recent_failures, record, send_volume_last_n_days
 from wswdy.repos.subscribers import insert_pending
 
 
@@ -26,7 +26,8 @@ def test_record_idempotent_unique_constraint(db):
 
 
 def test_recent_failures(db):
-    _sub(db, "s1"); _sub(db, "s2")
+    _sub(db, "s1")
+    _sub(db, "s2")
     record(db, "s1", "2026-04-28", "email", "failed", error="smtp 530")
     record(db, "s2", "2026-04-28", "email", "sent")
     fails = recent_failures(db, limit=10)

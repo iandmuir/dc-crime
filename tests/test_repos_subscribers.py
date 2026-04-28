@@ -1,6 +1,12 @@
 import pytest
+
 from wswdy.repos.subscribers import (
-    insert_pending, get, set_status, set_last_sent, list_active, list_by_status,
+    get,
+    insert_pending,
+    list_active,
+    list_by_status,
+    set_last_sent,
+    set_status,
 )
 
 
@@ -73,7 +79,9 @@ def test_invalid_status_raises(db):
 
 
 def test_list_by_status_returns_correct_rows(db):
-    _new(db, sid="a"); _new(db, sid="b"); _new(db, sid="c")
+    _new(db, sid="a")
+    _new(db, sid="b")
+    _new(db, sid="c")
     set_status(db, "a", "APPROVED")
     rows = list_by_status(db, "APPROVED")
     assert len(rows) == 1 and rows[0]["id"] == "a"

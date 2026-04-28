@@ -1,10 +1,10 @@
 """Admin alerts — log of alerts sent + 6h suppression markers."""
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def record(db: sqlite3.Connection, *, alert_type: str, message: str) -> int:

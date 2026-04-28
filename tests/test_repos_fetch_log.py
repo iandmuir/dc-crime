@@ -1,4 +1,4 @@
-from wswdy.repos.fetch_log import record_success, record_failure, last_successful, last_attempt
+from wswdy.repos.fetch_log import last_attempt, last_successful, record_failure, record_success
 
 
 def test_record_success_and_query(db):
