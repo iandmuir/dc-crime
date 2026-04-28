@@ -23,7 +23,7 @@ def test_select_closest_within_half_radius():
                               radius_m=1000, max_items=3)
     # Half-radius is 500m. The theft from auto and the armed robbery are within.
     offenses = [c["offense"] for c in closest]
-    assert "ROBBERY" in offenses or "THEFT F/AUTO" in offenses
+    assert "ROBBERY" in offenses and "THEFT F/AUTO" in offenses
     assert all(c["distance_m"] <= 500 for c in closest)
     # Sorted by distance ascending
     distances = [c["distance_m"] for c in closest]
