@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Review subscriber — wswdy{% endblock %}
+{% block nav_meta %}admin · review{% endblock %}
+{% block content %}
+<main class="page fade-in" style="max-width: 540px;">
+  <section class="lede">
+    <div class="lede-eyebrow">Pending signup</div>
+    <h1 class="display lede-title">{{ sub.display_name }} wants in.</h1>
+    <p class="lede-sub">Approve to send a welcome message; reject to decline.</p>
+  </section>
+
+  <div class="card">
+    <div class="card-eyebrow">request</div>
+    <div class="summary">
+      <div class="summary-row"><span class="k">name</span><span class="v">{{ sub.display_name }}</span></div>
+      <div class="summary-row"><span class="k">channel</span><span class="v">{{ sub.preferred_channel }} <span class="mono">{{ sub.email or sub.phone }}</span></span></div>
+      <div class="summary-row"><span class="k">address</span><span class="v">{{ sub.address_text }}</span></div>
+      <div class="summary-row"><span class="k">coords</span><span class="v mono">{{ "%.4f"|format(sub.lat) }}, {{ "%.4f"|format(sub.lon) }}</span></div>
+      <div class="summary-row"><span class="k">radius</span><span class="v tnum">{{ "{:,}".format(sub.radius_m) }}m</span></div>
+      <div class="summary-row"><span class="k">submitted</span><span class="v tnum">{{ sub.created_at }}</span></div>
+    </div>
+
+    {% if sub.status == "PENDING" %}
+    <div class="actions">
+      <form method="post" action="/a/{{ token }}/approve" style="display:inline">
+        <button type="submit" class="btn btn-primary">Approve &amp; send welcome</button>
+      </form>
+      <form method="post" action="/a/{{ token }}/reject" style="display:inline">
+        <button type="submit" class="btn btn-secondary">Reject</button>
+      </form>
+    </div>
+    {% else %}
+    <div class="card-eyebrow" style="margin-top:1rem;">already {{ sub.status.lower() }}</div>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}

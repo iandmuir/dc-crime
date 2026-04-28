@@ -12,7 +12,7 @@ from wswdy.config import get_settings
 from wswdy.db import connect, init_schema
 from wswdy.notifiers.email import EmailNotifier
 from wswdy.notifiers.whatsapp import WhatsAppMcpNotifier
-from wswdy.routes import health, public
+from wswdy.routes import admin_review, health, public
 
 PKG_DIR = Path(__file__).resolve().parent
 STATIC_DIR = PKG_DIR / "static"
@@ -56,6 +56,7 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(health.router)
     app.include_router(public.router)
+    app.include_router(admin_review.router)
 
     return app
 
