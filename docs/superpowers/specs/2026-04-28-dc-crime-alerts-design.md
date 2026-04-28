@@ -115,7 +115,7 @@ CREATE TABLE subscribers (
   address_text    TEXT NOT NULL,              -- as entered
   lat             REAL NOT NULL,
   lon             REAL NOT NULL,
-  radius_m        INTEGER NOT NULL,           -- 100..2000
+  radius_m        INTEGER NOT NULL,           -- 200..2000
   status          TEXT NOT NULL DEFAULT 'PENDING',  -- PENDING|APPROVED|REJECTED|UNSUBSCRIBED
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   approved_at     TIMESTAMP,
@@ -237,8 +237,19 @@ https://dccrime.iandmuir.com/u/abc123?token=xyz
 - `POST /u/{subscriber_id}?token=…`     — perform unsubscribe
 - `GET  /admin?token=…`                 — read-only admin dashboard
 
-**JSON API (consumed by the map page):**
-- `GET /api/crimes?subscriber={id}&token=…&window={24h|7d|30d}` — returns GeoJSON FeatureCollection of crimes matching the subscriber's center/radius and the chosen window. Tier added as a property on each feature.
+**JSON API:**
+- `GET /api/crimes?subscriber={id}&token=…&window={24h|7d|30d}` — returns GeoJSON FeatureCollection of crimes matching the subscriber's center/radius and the chosen window. Tier added as a property on each feature. Used by the map page.
+- `POST /api/preview` — body `{lat, lon, radius_m}`, returns aggregate counts for the last 7 days within the given circle. Used by the signup form to help users calibrate their radius. Returns only aggregates (no individual crime details). Rate-limited to 30 requests/minute per source IP.
+
+  Response shape:
+  ```json
+  {
+    "window_days": 7,
+    "total": 23,
+    "avg_per_day": 3.3,
+    "by_tier": {"1": 1, "2": 2, "3": 3, "4": 17}
+  }
+  ```
 
 **Health:**
 - `GET /healthz` — internal LXC use only (not exposed via Cloudflare Tunnel)
@@ -247,7 +258,7 @@ https://dccrime.iandmuir.com/u/abc123?token=xyz
 
 Three pages will be built via the `frontend-design` skill *before* backend implementation begins, designed as a coherent set:
 
-1. **Signup form** (`/`) — fields: display name, address (with MapTiler autocomplete), email, phone, preferred channel toggle, radius slider (100–2000m, default 800m), submit. Inline validation. Address-not-in-DC error.
+1. **Signup form** (`/`) — fields: display name, address (with MapTiler autocomplete), email, phone, preferred channel toggle, radius slider (200–2000m, default 1000m), submit. Inline validation. Address-not-in-DC error. Below the radius slider, a **live preview panel** shows aggregate crime counts for the last 7 days within the chosen radius around the entered address (debounced 300ms on slider/address change), so users can calibrate their radius. Panel must handle four states: (a) no address entered yet, (b) loading, (c) has-data with tier breakdown, (d) zero-crimes-in-7-days.
 2. **Unsubscribe confirmation** (`/u/{id}`) — pre-fill subscriber's name, "Are you sure?" → confirm button → success state with a "Re-subscribe" link back to the signup form.
 3. **Map page** (`/map/{id}`) — Leaflet map filling viewport, recipient's name + radius shown unobtrusively, a 24h / 7d / 30d toggle, color-coded markers per tier, click-to-popup with offense + block + time, legend.
 
@@ -332,6 +343,7 @@ Routing layer: `dispatch(subscriber, payload)` selects the implementation based 
 - Unsubscribe tokens have **no expiry** (good-citizen: unsubscribe must always work).
 - Approve/reject tokens expire after 7 days.
 - Form submissions are rate-limited per source IP (10 / hour) to deter abuse via the public form.
+- The unauthenticated `/api/preview` endpoint is rate-limited to 30 requests/minute per source IP and returns only aggregate counts — never individual crime records — so the worst-case scrape is a coarse density heatmap of already-public data.
 - No PII appears in log files (subscriber IDs are logged; names, emails, phone numbers are not).
 
 ## Risks & open items
