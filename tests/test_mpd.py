@@ -1,10 +1,11 @@
 import json
 from pathlib import Path
+
 import httpx
 import pytest
 import respx
-from wswdy.clients.mpd import fetch_recent_geojson, parse_features
 
+from wswdy.clients.mpd import fetch_recent_geojson, parse_features
 
 FIXTURE = Path(__file__).parent / "fixtures" / "mpd_sample.geojson"
 

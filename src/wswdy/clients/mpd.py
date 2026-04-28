@@ -5,8 +5,9 @@ WGS84 (`Point`, [lon, lat]). Timestamp fields are Unix epoch *milliseconds*
 from the ArcGIS server.
 """
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+
 import httpx
 
 
@@ -22,7 +23,7 @@ def _epoch_ms_to_iso(v: Any) -> str | None:
         return None
     try:
         ms = int(v)
-        return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc).isoformat(timespec="seconds")
+        return datetime.fromtimestamp(ms / 1000.0, tz=UTC).isoformat(timespec="seconds")
     except (TypeError, ValueError):
         return None
 
@@ -33,9 +34,15 @@ def parse_features(geojson: dict[str, Any]) -> list[dict[str, Any]]:
         geom = feat.get("geometry")
         if not geom or geom.get("type") != "Point":
             continue
-        coords = geom.get("coordinates") or [None, None]
+        coords = geom.get("coordinates") or []
+        if len(coords) < 2:
+            continue
         lon, lat = coords[0], coords[1]
         if lat is None or lon is None:
+            continue
+        try:
+            lat_f, lon_f = float(lat), float(lon)
+        except (TypeError, ValueError):
             continue
 
         p = feat.get("properties") or {}
@@ -49,8 +56,8 @@ def parse_features(geojson: dict[str, Any]) -> list[dict[str, Any]]:
             "method": p.get("METHOD"),
             "shift": p.get("SHIFT"),
             "block_address": p.get("BLOCK"),
-            "lat": float(lat),
-            "lon": float(lon),
+            "lat": lat_f,
+            "lon": lon_f,
             "report_dt": _epoch_ms_to_iso(p.get("REPORT_DAT")),
             "start_dt": _epoch_ms_to_iso(p.get("START_DATE")),
             "end_dt": _epoch_ms_to_iso(p.get("END_DATE")),
