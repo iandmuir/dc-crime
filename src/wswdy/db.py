@@ -72,8 +72,9 @@ CREATE TABLE IF NOT EXISTS admin_alerts (
 
 def connect(db_path: str) -> sqlite3.Connection:
     """Open a SQLite connection in WAL mode with row dict access."""
-    Path(db_path).parent.mkdir(parents=True, exist_ok=True) if "/" in db_path or "\\" in db_path else None
-    conn = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_DECLTYPES, check_same_thread=False)
+    if db_path != ":memory:":
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
