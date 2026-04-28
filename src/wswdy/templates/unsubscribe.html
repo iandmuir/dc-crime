@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Unsubscribe — wswdy{% endblock %}
+{% block nav_meta %}unsubscribe{% endblock %}
+{% block content %}
+<main class="page fade-in" style="max-width: 540px;">
+  {% if not done %}
+  <section class="lede">
+    <div class="lede-eyebrow">Cancel briefing</div>
+    <h1 class="display lede-title">
+      Hey <span class="name">{{ sub.display_name }}</span> — leaving us?
+    </h1>
+    <p class="lede-sub">We won't try to talk you out of it. One click and you're done.</p>
+  </section>
+  <div class="card">
+    <div class="card-eyebrow">your subscription</div>
+    <div class="summary">
+      <div class="summary-row"><span class="k">channel</span><span class="v">{{ sub.preferred_channel }} <span class="mono">{{ sub.email or sub.phone }}</span></span></div>
+      <div class="summary-row"><span class="k">coverage</span><span class="v"><span class="tnum">{{ "{:,}".format(sub.radius_m) }}m</span> around {{ sub.address_text }}</span></div>
+      <div class="summary-row"><span class="k">joined</span><span class="v tnum">{{ sub.created_at }}</span></div>
+    </div>
+    <div class="actions">
+      <form method="post" action="/u/{{ sub.id }}?token={{ token }}" style="display:inline">
+        <button type="submit" class="btn btn-danger">Yes, unsubscribe me</button>
+      </form>
+      <a href="/" class="keep tlink">Nevermind, keep me on</a>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="done-mark"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
+    <div class="card-eyebrow">confirmed</div>
+    <h2 class="done-title">You're out. Take care, {{ sub.display_name }}.</h2>
+    <p class="done-sub">No more morning briefings.</p>
+    <div class="actions">
+      <a href="/" class="btn btn-secondary">Re-subscribe</a>
+    </div>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}
