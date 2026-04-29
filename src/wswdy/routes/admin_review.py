@@ -33,8 +33,8 @@ async def _send_welcome(*, sub, email_notifier, whatsapp_notifier, subject, text
         )
         if not result.ok:
             logger.warning(
-                "welcome dispatch returned not-ok for %s: %s",
-                sub["id"], result.detail,
+                "welcome dispatch returned not-ok for %s: error=%r detail=%r",
+                sub["id"], result.error, result.detail,
             )
     except Exception:
         logger.exception("welcome dispatch raised for subscriber %s", sub["id"])
