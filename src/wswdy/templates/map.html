@@ -47,7 +47,10 @@ const SID = "{{ sub.id }}";
 const TOKEN = "{{ token }}";
 const KEY = "{{ maptiler_key }}";
 
-const map = L.map('map', { center: HOME });
+// Map needs a valid initial view (center + zoom) for the tile layer to
+// kick off requests. We set a placeholder zoom and immediately re-fit
+// to the radius circle below — the user only ever sees the fitted view.
+const map = L.map('map', { center: HOME, zoom: 15 });
 L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${KEY}`, {
   attribution: '© MapTiler © OpenStreetMap · MPD DC', maxZoom: 19,
 }).addTo(map);
@@ -60,7 +63,7 @@ const radiusCircle = L.circle(HOME, { radius: RADIUS_M, className: 'radius-circl
 // Fit the radius circle into view with some breathing room. This adapts
 // the zoom to whatever radius the subscriber chose — 200m gets close in,
 // 2000m zooms back out so the whole watch area is visible.
-map.fitBounds(radiusCircle.getBounds(), { padding: [40, 40] });
+map.fitBounds(radiusCircle.getBounds(), { padding: [40, 40], animate: false });
 
 const layer = L.layerGroup().addTo(map);
 
