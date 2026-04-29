@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     log_dir: str = Field("./logs", alias="WSWDY_LOG_DIR")
     db_path: str = Field("./dccrime.db", alias="WSWDY_DB_PATH")
 
+    # Where rendered static map images live. Must be readable by the WhatsApp
+    # bridge user (the bridge reads media by absolute file path), so this
+    # cannot be inside /root or any other directory the bridge user can't
+    # traverse. Defaults to {log_dir}/static_maps for dev convenience.
+    static_map_dir: str = Field("", alias="WSWDY_STATIC_MAP_DIR")
+
     hmac_secret: str
     admin_token: str
 
