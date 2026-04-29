@@ -66,6 +66,38 @@ async def test_send_skips_already_sent_today(db, tmp_path):
     assert len(email.sent) == 1
 
 
+async def test_send_does_not_crash_on_naive_fetched_at(db, tmp_path):
+    """Regression: SQLite's CURRENT_TIMESTAMP stores fetched_at as a tz-naive
+    'YYYY-MM-DD HH:MM:SS' string. Comparing it to a tz-aware now_iso used to
+    raise TypeError ("can't subtract offset-naive and offset-aware datetimes")
+    and crash the entire send job before any subscriber was processed."""
+    from wswdy.repos.fetch_log import record_success
+    record_success(db, added=10, updated=5)  # uses CURRENT_TIMESTAMP -> naive
+    # Sanity-check the regression precondition: the stored format really is
+    # tz-naive. If schema changes ever store with timezone, this test still
+    # passes — but the original bug couldn't have happened.
+    fetched_at = db.execute(
+        "SELECT fetched_at FROM fetch_log ORDER BY id DESC LIMIT 1"
+    ).fetchone()[0]
+    assert "+" not in fetched_at and "Z" not in fetched_at, (
+        f"expected naive timestamp, got {fetched_at!r}"
+    )
+
+    _seed_subscriber(db, "s1", channel="email")
+    _seed_crime(db)
+    email = FakeNotifier()
+    wa = FakeNotifier()
+    alerter = AdminAlerter(db=db, email=email, admin_email="admin@x",
+                           ha_webhook_url="", suppression_hours=6)
+    out = await run_daily_sends(
+        db=db, email=email, whatsapp=wa, alerter=alerter,
+        base_url="https://x", hmac_secret="s",
+        send_date="2026-04-29", now_iso="2026-04-29T10:00:00+00:00",
+        stagger=False, render_static_map=AsyncMock(return_value=tmp_path / "p.png"),
+    )
+    assert out["sent"] == 1
+
+
 async def test_send_appends_mpd_warning_when_feed_stale(db, tmp_path):
     """If most recent fetch failed and last successful is >24h old, append warning."""
     from wswdy.repos.fetch_log import record_failure, record_success
