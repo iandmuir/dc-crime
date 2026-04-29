@@ -576,6 +576,18 @@ body {
 /* ----- small button variant ----- */
 .btn-sm { padding: 0.45rem 0.85rem; font-size: 0.82rem; border-radius: var(--r-sm); }
 
+/* ----- WhatsApp confirmation card (signup thanks page) ----- */
+.wa-card {
+  border-color: #25D366;
+  background: linear-gradient(180deg, rgba(37, 211, 102, 0.04) 0%, var(--surface) 60%);
+}
+.wa-btn {
+  background: #25D366;
+  color: white;
+}
+.wa-btn:hover { background: #20BA5A; }
+.wa-btn svg { flex-shrink: 0; }
+
 /* ----- admin tables ----- */
 .card table th {
   font-family: var(--font-mono);

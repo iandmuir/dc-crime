@@ -43,10 +43,18 @@ async def signup_form(request: Request):
 
 
 @router.get("/signup/thanks", response_class=HTMLResponse)
-async def signup_thanks(request: Request):
+async def signup_thanks(request: Request, ch: str = ""):
+    """Confirmation page after signup. `ch` carries the channel choice so we can
+    show channel-specific guidance (e.g. a wa.me link to enable WhatsApp delivery)."""
     from wswdy.main import templates
 
-    return templates.TemplateResponse(request, "signup_thanks.html", {})
+    settings = request.app.state.settings
+    # WhatsApp wa.me links want digits only — no "+" or punctuation.
+    bridge_digits = "".join(c for c in settings.whatsapp_from_number if c.isdigit())
+    return templates.TemplateResponse(request, "signup_thanks.html", {
+        "channel": ch,
+        "wa_bridge_digits": bridge_digits,
+    })
 
 
 @router.post("/signup")
@@ -134,7 +142,7 @@ async def signup_submit(
         body=body,
     )
 
-    return RedirectResponse(url="/signup/thanks", status_code=303)
+    return RedirectResponse(url=f"/signup/thanks?ch={preferred_channel}", status_code=303)
 
 
 @router.get("/api/geocode", response_class=JSONResponse)
