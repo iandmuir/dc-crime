@@ -7,12 +7,16 @@ for this app at any plausible scale.
 
 Docs: https://apidocs.geoapify.com/docs/maps/map-tiles/static-maps/
 
-Note on URL encoding: Geoapify's marker syntax uses `:`, `;`, `,`, and `#` as
+Note on URL encoding: Geoapify's marker syntax uses `:`, `;`, `,` as
 structural separators inside parameter VALUES (e.g. `lonlat:-77.0,38.9` and
 `color:#0A0A0A;size:medium`). httpx's default param encoding percent-encodes
-those reserved characters, which Geoapify rejects with 400 Bad Request. We
-build the query string with urlencode(safe=":;,#") so they pass through
-literally, the way the API expects.
+those reserved characters, which Geoapify rejects with 400. We build the
+query string with urlencode(safe=":;,") so those pass through literally.
+
+`#` is NOT in the safe set: even though Geoapify writes `color:#HEX` in
+their docs, an unescaped `#` in a URL is the fragment delimiter and
+truncates the request. The hex must arrive as `%23HEX`, which Geoapify
+decodes correctly.
 """
 from pathlib import Path
 from urllib.parse import urlencode
@@ -77,10 +81,11 @@ async def render_static_map(
             f"lonlat:{lon},{lat};color:#{color};size:small",
         ))
 
-    # Build the query string ourselves so `:`, `;`, `,`, `#` survive un-encoded
-    # in marker values — Geoapify parses them as structural separators and
-    # returns 400 Bad Request when they're percent-encoded.
-    url = f"{STATIC_URL}?{urlencode(params, safe=':;,#')}"
+    # Build the query string ourselves so `:`, `;`, `,` survive un-encoded
+    # in marker values (Geoapify parses them as structural separators and
+    # rejects the encoded form). `#` MUST stay encoded as %23 — left literal
+    # in a URL it's parsed as the fragment delimiter, truncating the request.
+    url = f"{STATIC_URL}?{urlencode(params, safe=':;,')}"
 
     async with httpx.AsyncClient(timeout=timeout_s) as client:
         r = await client.get(url)
