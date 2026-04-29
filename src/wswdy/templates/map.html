@@ -57,20 +57,33 @@ const homeIcon = L.divIcon({ className: '', html: '<div class="home-marker"></di
 L.marker(HOME, { icon: homeIcon }).addTo(map);
 L.circle(HOME, { radius: RADIUS_M, className: 'radius-circle' }).addTo(map);
 
-let layer = L.layerGroup().addTo(map);
+const layer = L.layerGroup().addTo(map);
 
-async function load(window) {
-  const r = await fetch(`/api/crimes?subscriber=${SID}&token=${encodeURIComponent(TOKEN)}&window=${window}`);
-  if (!r.ok) return;
-  const fc = await r.json();
+// Cache responses by window so toggle switches are instant and we never
+// race three fetches into the same layer (the previous bug: whichever
+// finished last won, which was usually 30d under the active 24h toggle).
+const windowData = {};
+let activeWindow = '24h';
+
+async function fetchWindow(window) {
+  const r = await fetch(
+    `/api/crimes?subscriber=${SID}&token=${encodeURIComponent(TOKEN)}&window=${window}`
+  );
+  if (!r.ok) return null;
+  return await r.json();
+}
+
+function renderMarkers(fc) {
   layer.clearLayers();
   const counts = [0,0,0,0];
   fc.features.forEach(f => {
     const t = f.properties.tier;
     counts[t-1]++;
-    const icon = L.divIcon({ className: '',
+    const icon = L.divIcon({
+      className: '',
       html: `<div class="marker t${t}"></div>`,
-      iconSize: [18,18], iconAnchor: [9,9] });
+      iconSize: [18,18], iconAnchor: [9,9],
+    });
     L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]], { icon })
       .addTo(layer)
       .bindPopup(`<div class="pop-title">${f.properties.offense}</div>
@@ -78,18 +91,42 @@ async function load(window) {
                   <div class="pop-row"><span class="k">when</span><span class="v">${f.properties.report_dt}</span></div>`);
   });
   document.getElementById('legend-total').textContent = fc.features.length;
-  for (let i=1; i<=4; i++) document.getElementById('leg-'+i).textContent = counts[i-1];
+  for (let i=1; i<=4; i++) {
+    document.getElementById('leg-'+i).textContent = counts[i-1];
+  }
+}
+
+async function loadAndCache(window) {
+  const fc = await fetchWindow(window);
+  if (!fc) return null;
+  windowData[window] = fc;
   document.getElementById('n-' + window).textContent = fc.features.length;
+  return fc;
+}
+
+async function init() {
+  // Kick off all three so the toggle counts populate. Render markers
+  // only for the active window — once it's available, regardless of
+  // which other fetches are still in flight or already done.
+  const promises = ['24h', '7d', '30d'].map(loadAndCache);
+  // As soon as the active window's response lands, paint the map.
+  const activePromise = promises[['24h', '7d', '30d'].indexOf(activeWindow)];
+  const activeFc = await activePromise;
+  if (activeFc) renderMarkers(activeFc);
+  // Let the rest finish in the background for their counts.
+  await Promise.all(promises);
 }
 
 document.querySelectorAll('#toggle button').forEach(b => {
-  b.addEventListener('click', () => {
+  b.addEventListener('click', async () => {
     document.querySelectorAll('#toggle button').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
-    load(b.dataset.window);
+    activeWindow = b.dataset.window;
+    const fc = windowData[activeWindow] || await loadAndCache(activeWindow);
+    if (fc) renderMarkers(fc);
   });
 });
 
-['24h', '7d', '30d'].forEach(load);
+init();
 </script>
 {% endblock %}
