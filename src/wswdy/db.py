@@ -67,6 +67,14 @@ CREATE TABLE IF NOT EXISTS admin_alerts (
   created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   suppressed_until TIMESTAMP
 );
+
+-- Generic key/value store for app-level bookkeeping (e.g. last-checked
+-- timestamps for the inbound STOP-message scanner).
+CREATE TABLE IF NOT EXISTS app_state (
+  key            TEXT PRIMARY KEY,
+  value          TEXT,
+  updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 

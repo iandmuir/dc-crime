@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # whatever's in the DB so subscribers get *something* every day.
     send_cutoff_hour_et: int = Field(19, alias="WSWDY_SEND_CUTOFF_HOUR_ET")
 
+    # Path to the WhatsApp bridge's messages.db. The inbound STOP scanner
+    # reads it (read-only) to detect unsubscribe replies. Empty disables
+    # the scanner — useful for dev where there's no bridge.
+    bridge_db_path: str = Field("", alias="WSWDY_BRIDGE_DB_PATH")
+
     hmac_secret: str
     admin_token: str
 
