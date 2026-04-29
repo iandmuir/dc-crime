@@ -47,7 +47,7 @@ const SID = "{{ sub.id }}";
 const TOKEN = "{{ token }}";
 const KEY = "{{ maptiler_key }}";
 
-const map = L.map('map', { center: HOME, zoom: 15 });
+const map = L.map('map', { center: HOME });
 L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${KEY}`, {
   attribution: '© MapTiler © OpenStreetMap · MPD DC', maxZoom: 19,
 }).addTo(map);
@@ -55,7 +55,12 @@ L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${KEY}
 const homeIcon = L.divIcon({ className: '', html: '<div class="home-marker"></div>',
   iconSize: [26, 26], iconAnchor: [13, 13] });
 L.marker(HOME, { icon: homeIcon }).addTo(map);
-L.circle(HOME, { radius: RADIUS_M, className: 'radius-circle' }).addTo(map);
+const radiusCircle = L.circle(HOME, { radius: RADIUS_M, className: 'radius-circle' }).addTo(map);
+
+// Fit the radius circle into view with some breathing room. This adapts
+// the zoom to whatever radius the subscriber chose — 200m gets close in,
+// 2000m zooms back out so the whole watch area is visible.
+map.fitBounds(radiusCircle.getBounds(), { padding: [40, 40] });
 
 const layer = L.layerGroup().addTo(map);
 
