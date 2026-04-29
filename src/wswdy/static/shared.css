@@ -495,3 +495,101 @@ body {
   color: var(--ink-4);
   font-family: var(--font-mono);
 }
+
+/* ----- key/value summary rows (admin, review pages) ----- */
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.summary-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  font-size: 0.9rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px dashed var(--border);
+}
+.summary-row:last-child { border-bottom: none; }
+.summary-row .k {
+  flex: 0 0 130px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.summary-row .v {
+  flex: 1;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+/* ----- card eyebrow ----- */
+.card-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.6rem;
+  font-weight: 500;
+}
+
+/* ----- review page lede ----- */
+.lede { margin-bottom: 2rem; }
+.lede-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.75rem;
+}
+.lede-title {
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+  margin: 0 0 0.6rem;
+}
+.lede-sub { font-size: 1rem; color: var(--ink-2); margin: 0; }
+
+/* ----- review actions ----- */
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* ----- pending list (admin) ----- */
+.pending-list { list-style: none; padding: 0; margin: 0.5rem 0 0; }
+.pending-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.pending-item:last-child { border-bottom: none; }
+.pending-info { flex: 1; min-width: 0; font-size: 0.9rem; line-height: 1.4; }
+.pending-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+
+/* ----- small button variant ----- */
+.btn-sm { padding: 0.45rem 0.85rem; font-size: 0.82rem; border-radius: var(--r-sm); }
+
+/* ----- admin tables ----- */
+.card table th {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  padding: 0.5rem 0.5rem 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.card table td {
+  padding: 0.45rem 0.5rem 0.45rem 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 0.88rem;
+}
+.card table tbody tr:last-child td { border-bottom: none; }
