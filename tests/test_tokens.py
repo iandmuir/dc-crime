@@ -1,6 +1,6 @@
-import time
 import pytest
-from wswdy.tokens import sign, verify, TokenError
+
+from wswdy.tokens import TokenError, sign, verify
 
 SECRET = "test-secret-32-bytes-long-base64ish"
 

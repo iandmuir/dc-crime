@@ -1,5 +1,6 @@
 import pytest
-from wswdy.geo import haversine_m, in_dc_bbox, DC_BBOX
+
+from wswdy.geo import DC_BBOX, haversine_m, in_dc_bbox
 
 
 def test_haversine_zero_distance():

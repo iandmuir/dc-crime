@@ -1,6 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 from wswdy.repos.crimes import (
-    upsert_many, count_in_radius, list_in_radius, list_in_radius_window, prune_older_than,
+    count_in_radius,
+    list_in_radius,
+    list_in_radius_window,
+    prune_older_than,
+    upsert_many,
 )
 
 
@@ -52,7 +57,7 @@ def test_list_in_radius_filters_correctly(db):
 
 
 def test_list_in_radius_window_24h(db):
-    now = datetime(2026, 4, 28, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
     upsert_many(db, [
         _crime("recent", when=(now - timedelta(hours=2)).isoformat()),
         _crime("oldish", when=(now - timedelta(hours=30)).isoformat()),

@@ -4,7 +4,7 @@ Stubs MapTiler geocoding and replaces real notifiers with FakeNotifier so the
 test runs offline. Exercises every public surface in sequence.
 """
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -28,7 +28,7 @@ def app(monkeypatch, tmp_path):
 
 
 def _seed_recent_crime(app, hours_ago=2):
-    when = (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).isoformat(timespec="seconds")
+    when = (datetime.now(UTC) - timedelta(hours=hours_ago)).isoformat(timespec="seconds")
     upsert_many(app.state.db, [{
         "ccn": "SMOKE1", "offense": "ROBBERY", "method": "GUN", "shift": "DAY",
         "block_address": "1400 block of P St NW", "lat": 38.9100, "lon": -77.0319,
@@ -98,7 +98,7 @@ async def test_full_happy_path(mock_geo, app, tmp_path):
         alerter=app.state.alerter,
         base_url="https://x.test", hmac_secret="secret",
         send_date=str(date.today()),
-        now_iso=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        now_iso=datetime.now(UTC).isoformat(timespec="seconds"),
         stagger=False, render_static_map=None,
     )
     assert out["sent"] == 1

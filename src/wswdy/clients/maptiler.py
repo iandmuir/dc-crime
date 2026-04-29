@@ -1,12 +1,15 @@
-"""MapTiler API client — Geocoding + Static Maps."""
-from pathlib import Path
+"""MapTiler API client — Geocoding only.
 
+Static maps used to live here too, but MapTiler's free tier doesn't include
+the static-maps product (returns a 403 "invalid key" PNG). Static rendering
+moved to wswdy.clients.geoapify. Tile maps for the interactive /map view
+still come from MapTiler — raster tiles ARE included in the free tier.
+"""
 import httpx
 
 from wswdy.geo import in_dc_bbox
 
 GEOCODE_URL = "https://api.maptiler.com/geocoding/{q}.json"
-STATIC_URL = "https://api.maptiler.com/maps/streets-v2/static/{lon},{lat},{zoom}/{w}x{h}.png"
 
 
 class GeocodeError(Exception):
@@ -33,51 +36,3 @@ async def geocode_address(query: str, *, api_key: str, timeout_s: float = 10.0) 
     # MapTiler labels DC addresses as "Columbia <ZIP>" — normalize to "Washington, DC".
     display = display.replace(", Columbia ", ", Washington, DC ")
     return {"lat": float(lat), "lon": float(lon), "display": display}
-
-
-def _zoom_for_radius_m(radius_m: int) -> int:
-    """Return a heuristic zoom level for the given radius on a ~600x400 canvas."""
-    if radius_m <= 300:
-        return 16
-    if radius_m <= 700:
-        return 15
-    if radius_m <= 1300:
-        return 14
-    if radius_m <= 2200:
-        return 13
-    return 12
-
-
-_TIER_HEX = {1: "DC2626", 2: "EA580C", 3: "D97706", 4: "65A30D"}
-
-
-async def render_static_map(
-    *,
-    api_key: str,
-    center_lat: float,
-    center_lon: float,
-    radius_m: int,
-    markers: list[tuple[float, float, int]],
-    out_path: Path,
-    width: int = 600,
-    height: int = 400,
-    timeout_s: float = 20.0,
-) -> Path:
-    """Render a static PNG map with tier-coloured markers and write it to `out_path`.
-
-    `markers` is a list of (lat, lon, tier).
-    """
-    zoom = _zoom_for_radius_m(radius_m)
-    url = STATIC_URL.format(lon=center_lon, lat=center_lat, zoom=zoom, w=width, h=height)
-    params: list[tuple[str, str]] = [("key", api_key)]
-    # Home pin first (near-black)
-    params.append(("marker", f"{center_lon},{center_lat},#0A0A0A"))
-    for lat, lon, tier in markers[:60]:  # cap to keep URL length sane
-        color = _TIER_HEX.get(tier, "888888")  # grey fallback for unknown tiers
-        params.append(("marker", f"{lon},{lat},#{color}"))
-    async with httpx.AsyncClient(timeout=timeout_s) as client:
-        r = await client.get(url, params=params)
-        r.raise_for_status()
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_bytes(r.content)
-    return out_path

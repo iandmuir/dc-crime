@@ -48,11 +48,11 @@ async def lifespan(app: FastAPI):
         )
 
     async def send_job():
-        from wswdy.clients.maptiler import render_static_map
+        from wswdy.clients.geoapify import render_static_map
 
         async def render(*, center_lat, center_lon, radius_m, markers, out_path):
             return await render_static_map(
-                api_key=settings.maptiler_api_key,
+                api_key=settings.geoapify_api_key,
                 center_lat=center_lat, center_lon=center_lon,
                 radius_m=radius_m, markers=markers, out_path=out_path,
             )
