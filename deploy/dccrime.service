@@ -1,0 +1,24 @@
+[Unit]
+Description=wswdy — DC Crime Alerts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wswdy
+Group=wswdy
+WorkingDirectory=/opt/wswdy
+EnvironmentFile=/opt/wswdy/.env
+ExecStart=/opt/wswdy/.venv/bin/uvicorn wswdy.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/dccrime/app.log
+StandardError=append:/var/log/dccrime/app.log
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/wswdy /var/log/dccrime
+
+[Install]
+WantedBy=multi-user.target
