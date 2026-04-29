@@ -1,5 +1,7 @@
 """Signup form + POST /signup + JSON helpers used by the form."""
-from fastapi import APIRouter, Form, Request, Response, status
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Form, Request, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from wswdy.clients.maptiler import GeocodeError, geocode_address
@@ -8,6 +10,8 @@ from wswdy.ids import new_subscriber_id
 from wswdy.ratelimit import RateLimiter
 from wswdy.repos import subscribers as subs_repo
 from wswdy.tokens import sign
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 _signup_rl = RateLimiter(max_requests=10, window_s=3600)
@@ -18,6 +22,19 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+async def _notify_admin_of_signup(
+    *, email_notifier, admin_email: str, subject: str, body: str,
+) -> None:
+    """Send the admin notification, swallowing any errors so the user-facing
+    redirect already happened by the time SMTP is attempted."""
+    try:
+        await email_notifier.send(
+            recipient=admin_email, subject=subject, text=body, image_path=None,
+        )
+    except Exception:
+        logger.exception("admin signup notification failed")
+
+
 @router.get("/", response_class=HTMLResponse)
 async def signup_form(request: Request):
     from wswdy.main import templates
@@ -25,9 +42,17 @@ async def signup_form(request: Request):
     return templates.TemplateResponse(request, "signup.html", {"error": None})
 
 
+@router.get("/signup/thanks", response_class=HTMLResponse)
+async def signup_thanks(request: Request):
+    from wswdy.main import templates
+
+    return templates.TemplateResponse(request, "signup_thanks.html", {})
+
+
 @router.post("/signup")
 async def signup_submit(
     request: Request,
+    background_tasks: BackgroundTasks,
     display_name: str = Form(...),
     address_text: str = Form(...),
     preferred_channel: str = Form(...),
@@ -84,6 +109,8 @@ async def signup_submit(
         radius_m=radius_m,
     )
 
+    # Build the admin notification but send it in the background so the
+    # user gets redirected to the thanks page immediately.
     token = sign(
         settings.hmac_secret,
         purpose="approve",
@@ -99,14 +126,15 @@ async def signup_submit(
         f"Radius:  {radius_m}m\n\n"
         f"Approve or reject:\n{review_url}\n"
     )
-    await request.app.state.email_notifier.send(
-        recipient=settings.admin_email,
+    background_tasks.add_task(
+        _notify_admin_of_signup,
+        email_notifier=request.app.state.email_notifier,
+        admin_email=settings.admin_email,
         subject=f"[wswdy] new signup: {display_name}",
-        text=body,
-        image_path=None,
+        body=body,
     )
 
-    return RedirectResponse(url="/?submitted=1", status_code=303)
+    return RedirectResponse(url="/signup/thanks", status_code=303)
 
 
 @router.get("/api/geocode", response_class=JSONResponse)

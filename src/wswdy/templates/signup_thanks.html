@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Request received — wswdy{% endblock %}
+{% block content %}
+<main class="page fade-in">
+  <section class="lede">
+    <div class="lede-eyebrow">request received</div>
+    <h1 class="display lede-title">You're on the list. <span class="accent">Almost.</span></h1>
+    <p class="lede-sub">
+      Thanks — we got it. An admin needs to confirm new signups before any
+      messages start (it keeps the list small and the spam zero).
+    </p>
+  </section>
+
+  <div class="card">
+    <h2 class="card-title">What happens next</h2>
+    <div class="summary" style="margin-top: 0.75rem;">
+      <div class="summary-row">
+        <span class="k">1</span>
+        <span class="v">An admin reviews your request — usually within a day.</span>
+      </div>
+      <div class="summary-row">
+        <span class="k">2</span>
+        <span class="v">Once approved, you'll get a confirmation message on the channel you chose (email or WhatsApp).</span>
+      </div>
+      <div class="summary-row">
+        <span class="k">3</span>
+        <span class="v">Your first daily briefing arrives the next morning at 6am.</span>
+      </div>
+    </div>
+    <p class="submit-fineprint" style="text-align: left; margin-top: 1.25rem;">
+      Didn't mean to sign up, or want to change something?
+      Just reply to the welcome message when it arrives — or
+      <a class="tlink" href="/">submit again</a> with the right details.
+    </p>
+  </div>
+
+  <footer class="footer">
+    <div>data: <a href="https://opendata.dc.gov/datasets/" class="tlink">DC MPD open feed</a></div>
+    <div>dccrime.iandmuir.com</div>
+  </footer>
+</main>
+{% endblock %}
