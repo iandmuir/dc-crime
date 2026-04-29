@@ -6,8 +6,16 @@ Geoapify's free tier gives 3,000 static-map renders per day, which is plenty
 for this app at any plausible scale.
 
 Docs: https://apidocs.geoapify.com/docs/maps/map-tiles/static-maps/
+
+Note on URL encoding: Geoapify's marker syntax uses `:`, `;`, `,`, and `#` as
+structural separators inside parameter VALUES (e.g. `lonlat:-77.0,38.9` and
+`color:#0A0A0A;size:medium`). httpx's default param encoding percent-encodes
+those reserved characters, which Geoapify rejects with 400 Bad Request. We
+build the query string with urlencode(safe=":;,#") so they pass through
+literally, the way the API expects.
 """
 from pathlib import Path
+from urllib.parse import urlencode
 
 import httpx
 
@@ -69,8 +77,13 @@ async def render_static_map(
             f"lonlat:{lon},{lat};color:#{color};size:small",
         ))
 
+    # Build the query string ourselves so `:`, `;`, `,`, `#` survive un-encoded
+    # in marker values — Geoapify parses them as structural separators and
+    # returns 400 Bad Request when they're percent-encoded.
+    url = f"{STATIC_URL}?{urlencode(params, safe=':;,#')}"
+
     async with httpx.AsyncClient(timeout=timeout_s) as client:
-        r = await client.get(STATIC_URL, params=params)
+        r = await client.get(url)
         r.raise_for_status()
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(r.content)
