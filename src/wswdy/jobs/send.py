@@ -117,6 +117,7 @@ async def run_daily_sends(
             subject=f"DC briefing for {sub['display_name']} — {send_date}",
             text=text,
             image_path=image_path,
+            unsubscribe_url=unsub_url,
         )
 
         if result.ok:

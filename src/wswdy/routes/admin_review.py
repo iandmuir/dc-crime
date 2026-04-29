@@ -21,7 +21,8 @@ def _verify_or_400(request: Request, token: str) -> str | Response:
         return Response(status_code=400, content=f"invalid token: {e}")
 
 
-async def _send_welcome(*, sub, email_notifier, whatsapp_notifier, subject, text):
+async def _send_welcome(*, sub, email_notifier, whatsapp_notifier, subject, text,
+                         unsubscribe_url):
     """Best-effort welcome dispatch. Logs failures rather than raising so the
     admin's redirect already happened by the time we attempt the network call."""
     try:
@@ -30,6 +31,7 @@ async def _send_welcome(*, sub, email_notifier, whatsapp_notifier, subject, text
             email_notifier=email_notifier,
             whatsapp_notifier=whatsapp_notifier,
             subject=subject, text=text, image_path=None,
+            unsubscribe_url=unsubscribe_url,
         )
         if not result.ok:
             logger.warning(
@@ -70,11 +72,13 @@ async def review_approve(request: Request, token: str, background_tasks: Backgro
     settings = request.app.state.settings
     unsub_token = sign(settings.hmac_secret, purpose="unsubscribe",
                        subscriber_id=sub["id"])
+    unsub_url = f"{settings.base_url}/u/{sub['id']}?token={unsub_token}"
     text = (
         f"Hi {sub['display_name']} — you're confirmed. ✓\n\n"
-        f"You'll get your first DC crime briefing tomorrow morning at 6am, "
-        f"covering the area within {sub['radius_m']:,}m of your home.\n\n"
-        f"Unsubscribe anytime: {settings.base_url}/u/{sub['id']}?token={unsub_token}"
+        f"You'll get your first DC crime briefing the morning after MPD "
+        f"publishes their daily data, covering the area within "
+        f"{sub['radius_m']:,}m of your home.\n\n"
+        f"Reply STOP to unsubscribe."
     )
     background_tasks.add_task(
         _send_welcome,
@@ -83,6 +87,7 @@ async def review_approve(request: Request, token: str, background_tasks: Backgro
         whatsapp_notifier=request.app.state.whatsapp_notifier,
         subject=f"Welcome to wswdy, {sub['display_name']}",
         text=text,
+        unsubscribe_url=unsub_url,
     )
 
     return RedirectResponse(url=f"/a/{token}?done=approved", status_code=303)

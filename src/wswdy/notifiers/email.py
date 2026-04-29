@@ -39,37 +39,42 @@ class EmailNotifier:
             self.use_starttls = bool(use_starttls)
 
     async def send(self, *, recipient: str, subject: str, text: str,
-                   image_path: Path | None) -> SendResult:
+                   image_path: Path | None,
+                   unsubscribe_url: str | None = None) -> SendResult:
+        # Build the HTML version of the body — always sent as
+        # multipart/alternative so HTML clients show the styled view with
+        # the unsubscribe footer link, while plain-text clients still get
+        # the readable text version.
+        html_body = _render_html(text, has_image=image_path is not None,
+                                 unsubscribe_url=unsubscribe_url)
+
         if image_path is not None:
-            # Build multipart/related > multipart/alternative + inline image
-            html = (
-                f"<html><body style='font-family: -apple-system, system-ui, sans-serif;"
-                f" background:#FAFAF6; padding:24px;'>"
-                f"<pre style='font: 14px/1.5 ui-monospace, monospace; white-space:pre-wrap;"
-                f" background:#fff; padding:18px; border:1px solid #E5E3DC; border-radius:10px;'>"
-                f"{_escape(text)}</pre>"
-                f"<img src='cid:preview' style='display:block;margin-top:12px;"
-                f"max-width:100%;border:1px solid #E5E3DC;border-radius:10px;' />"
-                f"</body></html>"
-            )
+            # multipart/related > multipart/alternative > [text + html] + image
             related = MIMEMultipart("related")
             alternative = MIMEMultipart("alternative")
             alternative.attach(MIMEText(text, "plain"))
-            alternative.attach(MIMEText(html, "html"))
+            alternative.attach(MIMEText(html_body, "html"))
             related.attach(alternative)
-            # Attach inline image referenced as cid:preview
             img_part = MIMEImage(image_path.read_bytes(), "png")
             img_part.add_header("Content-ID", "<preview>")
             img_part.add_header("Content-Disposition", "inline")
             related.attach(img_part)
             msg: EmailMessage | MIMEMultipart = related
         else:
-            msg = EmailMessage()
-            msg.set_content(text)
+            # multipart/alternative with text + html
+            alternative = MIMEMultipart("alternative")
+            alternative.attach(MIMEText(text, "plain"))
+            alternative.attach(MIMEText(html_body, "html"))
+            msg = alternative
 
         msg["From"] = self.sender
         msg["To"] = recipient
         msg["Subject"] = subject
+        # RFC 2369 / 8058: most clients (Gmail, Apple Mail, etc.) render a
+        # native one-click unsubscribe header — invisible spam-fighter goodness.
+        if unsubscribe_url:
+            msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+            msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
         try:
             await aiosmtplib.send(
@@ -93,3 +98,34 @@ class EmailNotifier:
 def _escape(s: str) -> str:
     """HTML-escape the text content for safe embedding in an HTML email."""
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _render_html(text: str, *, has_image: bool, unsubscribe_url: str | None) -> str:
+    """Render the digest text as a styled HTML email with optional inline image
+    placeholder (cid:preview) and an unsubscribe footer link."""
+    body_inner = (
+        f"<pre style='font: 14px/1.5 ui-monospace, monospace; white-space:pre-wrap;"
+        f" background:#fff; padding:18px; border:1px solid #E5E3DC; border-radius:10px;"
+        f" margin:0;'>{_escape(text)}</pre>"
+    )
+    if has_image:
+        body_inner += (
+            "<img src='cid:preview' style='display:block;margin-top:12px;"
+            "max-width:100%;border:1px solid #E5E3DC;border-radius:10px;' />"
+        )
+    if unsubscribe_url:
+        body_inner += (
+            f"<div style='margin-top:18px;padding-top:14px;border-top:1px solid #E5E3DC;"
+            f"font: 12px/1.5 -apple-system, system-ui, sans-serif;color:#737373;"
+            f"text-align:center;'>"
+            f"You're getting this because you signed up at dccrime.iandmuir.com. "
+            f"<a href='{_escape(unsubscribe_url)}' style='color:#737373;'>"
+            f"Unsubscribe</a>."
+            f"</div>"
+        )
+    return (
+        f"<html><body style='font-family: -apple-system, system-ui, sans-serif;"
+        f" background:#FAFAF6; padding:24px; margin:0;'>"
+        f"{body_inner}"
+        f"</body></html>"
+    )

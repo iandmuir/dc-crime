@@ -10,9 +10,11 @@ class FakeNotifier:
         self.fail_with = fail_with
 
     async def send(self, *, recipient: str, subject: str, text: str,
-                   image_path: Path | None) -> SendResult:
+                   image_path: Path | None,
+                   unsubscribe_url: str | None = None) -> SendResult:
         self.sent.append({"recipient": recipient, "subject": subject,
-                          "text": text, "image_path": image_path})
+                          "text": text, "image_path": image_path,
+                          "unsubscribe_url": unsubscribe_url})
         if self.fail_with:
             return SendResult(ok=False, error=self.fail_with)
         return SendResult(ok=True)
