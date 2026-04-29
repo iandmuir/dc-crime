@@ -27,9 +27,10 @@ from wswdy.digest import build_digest_text
 from wswdy.notifiers.base import Notifier, dispatch
 from wswdy.repos.crimes import list_in_radius_window
 from wswdy.repos.fetch_log import last_successful
-from wswdy.repos.send_log import exists_for_today, record
+from wswdy.repos.send_log import any_sent_today, exists_for_today, record
 from wswdy.repos.subscribers import list_active, set_last_sent
 from wswdy.tiers import classify
+from wswdy.timefmt import ET
 from wswdy.tokens import sign
 
 log = logging.getLogger(__name__)
@@ -146,3 +147,95 @@ def _is_feed_stale(db: sqlite3.Connection, *, now_iso: str) -> bool:
     last_dt = _parse_iso_as_utc(last_ok["fetched_at"])
     now_dt = _parse_iso_as_utc(now_iso)
     return (now_dt - last_dt) > timedelta(hours=24)
+
+
+def feed_has_yesterdays_data(
+    db: sqlite3.Connection, *, now_iso: str, min_records: int = 5,
+) -> bool:
+    """True if the MPD feed has been updated with at least `min_records` reports
+    from yesterday's ET calendar date.
+
+    This is the trigger for the adaptive send: MPD's daily publishing batch
+    is what causes yesterday's records to land in the feed. Until that
+    happens, sending out a digest about "yesterday" makes promises the data
+    can't keep. We wait until the batch lands (any reports from yesterday's
+    date) and ship as soon as it does.
+
+    A small min_records threshold (5) avoids triggering on a single straggler
+    report; DC averages ~80-100 reports per day, so 5 is a safe "the batch
+    has clearly started landing" signal.
+    """
+    now_et = _parse_iso_as_utc(now_iso).astimezone(ET)
+    yesterday_et = now_et.date() - timedelta(days=1)
+    # Bounds: yesterday 00:00 ET -> today 00:00 ET, expressed as ISO UTC
+    # strings comparable to the report_dt column.
+    start = datetime.combine(yesterday_et, datetime.min.time(), tzinfo=ET)
+    end = datetime.combine(now_et.date(), datetime.min.time(), tzinfo=ET)
+    row = db.execute(
+        "SELECT COUNT(*) FROM crimes WHERE report_dt >= ? AND report_dt < ?",
+        (start.astimezone(UTC).isoformat(), end.astimezone(UTC).isoformat()),
+    ).fetchone()
+    return (row[0] or 0) >= min_records
+
+
+async def run_send_if_ready(
+    *,
+    db: sqlite3.Connection,
+    email: Notifier,
+    whatsapp: Notifier,
+    alerter: AdminAlerter,
+    base_url: str,
+    hmac_secret: str,
+    now_iso: str,
+    cutoff_hour_et: int = 19,
+    render_static_map: Callable[..., Awaitable[Path]] | None = None,
+    static_map_dir: Path = Path("./static_maps"),
+) -> dict:
+    """Adaptive daily send. Runs cheaply on every hourly trigger; only fires
+    the actual digest send when:
+
+      - we haven't already sent today AND
+      - (the MPD feed contains yesterday's data OR we're past the cutoff hour)
+
+    The cutoff is the "force-send no later than" guard for days when MPD
+    publishes late or not at all.
+
+    Returns a status dict; the {sent, failed, skipped} counts are present
+    only when an actual send fired.
+    """
+    today_et = _parse_iso_as_utc(now_iso).astimezone(ET).date()
+    send_date = today_et.isoformat()
+
+    if any_sent_today(db, send_date):
+        log.info("Adaptive send: already sent today (%s), skipping", send_date)
+        return {"status": "already_sent_today", "send_date": send_date}
+
+    is_fresh = feed_has_yesterdays_data(db, now_iso=now_iso)
+    now_hour_et = _parse_iso_as_utc(now_iso).astimezone(ET).hour
+    is_cutoff = now_hour_et >= cutoff_hour_et
+
+    if not is_fresh and not is_cutoff:
+        log.info(
+            "Adaptive send: feed not fresh yet (no yesterday data) and "
+            "before cutoff (%dh ET, cutoff=%dh) — waiting for next trigger",
+            now_hour_et, cutoff_hour_et,
+        )
+        return {"status": "waiting_for_fresh_data", "send_date": send_date}
+
+    log.info(
+        "Adaptive send: dispatching (fresh=%s, cutoff=%s)",
+        is_fresh, is_cutoff,
+    )
+    counts = await run_daily_sends(
+        db=db, email=email, whatsapp=whatsapp, alerter=alerter,
+        base_url=base_url, hmac_secret=hmac_secret,
+        send_date=send_date, now_iso=now_iso,
+        stagger=True,
+        render_static_map=render_static_map,
+        static_map_dir=static_map_dir,
+    )
+    return {
+        "status": "sent" if is_fresh else "sent_at_cutoff",
+        "send_date": send_date,
+        **counts,
+    }

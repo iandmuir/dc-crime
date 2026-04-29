@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     # traverse. Defaults to {log_dir}/static_maps for dev convenience.
     static_map_dir: str = Field("", alias="WSWDY_STATIC_MAP_DIR")
 
+    # Adaptive send: hour-of-day in ET past which we force-send the daily
+    # digest even if MPD hasn't published yesterday's batch yet. The hourly
+    # trigger waits for fresh data up until this cutoff, then ships
+    # whatever's in the DB so subscribers get *something* every day.
+    send_cutoff_hour_et: int = Field(19, alias="WSWDY_SEND_CUTOFF_HOUR_ET")
+
     hmac_secret: str
     admin_token: str
 
