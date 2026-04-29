@@ -4,8 +4,23 @@ import logging
 import random
 import sqlite3
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+
+def _parse_iso_as_utc(s: str) -> datetime:
+    """Parse an ISO timestamp; treat naive (no tz) values as UTC.
+
+    fetch_log.fetched_at is stored by SQLite's CURRENT_TIMESTAMP as
+    'YYYY-MM-DD HH:MM:SS' (no offset) — and SQLite's CURRENT_TIMESTAMP
+    is always UTC. now_iso from the scheduler is timezone-aware
+    (datetime.now(UTC).isoformat()). Comparing the two without
+    normalizing throws TypeError.
+    """
+    dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt
 
 from wswdy.alerts import AdminAlerter
 from wswdy.digest import build_digest_text
@@ -47,9 +62,7 @@ async def run_daily_sends(
     mpd_warning = _is_feed_stale(db, now_iso=now_iso)
 
     sent = failed = skipped = 0
-    now_dt = datetime.fromisoformat(now_iso)
-    if now_dt.tzinfo is None:
-        now_dt = now_dt.replace(tzinfo=datetime.UTC)
+    now_dt = _parse_iso_as_utc(now_iso)
     start_dt = now_dt - timedelta(hours=24)
     start_iso = start_dt.isoformat(timespec="seconds")
     end_iso = now_dt.isoformat(timespec="seconds")
@@ -130,8 +143,6 @@ def _is_feed_stale(db: sqlite3.Connection, *, now_iso: str) -> bool:
     last_ok = last_successful(db)
     if not last_ok:
         return True
-    last_dt = datetime.fromisoformat(last_ok["fetched_at"].replace("Z", "+00:00"))
-    now_dt = datetime.fromisoformat(now_iso)
-    if now_dt.tzinfo is None:
-        now_dt = now_dt.replace(tzinfo=datetime.UTC)
+    last_dt = _parse_iso_as_utc(last_ok["fetched_at"])
+    now_dt = _parse_iso_as_utc(now_iso)
     return (now_dt - last_dt) > timedelta(hours=24)
