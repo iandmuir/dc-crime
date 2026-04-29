@@ -14,6 +14,7 @@ from wswdy.config import get_settings
 from wswdy.db import connect, init_schema
 from wswdy.jobs.fetch import run_fetch
 from wswdy.jobs.health import run_health_snapshot
+from wswdy.jobs.inbound_scanner import run_inbound_scan
 from wswdy.jobs.prune import run_prune
 from wswdy.jobs.send import run_send_if_ready
 from wswdy.notifiers.email import EmailNotifier
@@ -107,9 +108,26 @@ async def lifespan(app: FastAPI):
             admin_email=settings.admin_email, today=str(date.today()),
         )
 
+    async def inbound_job():
+        if not settings.bridge_db_path:
+            return  # scanner disabled
+        try:
+            result = await run_inbound_scan(
+                db=app.state.db,
+                bridge_db_path=settings.bridge_db_path,
+                whatsapp=app.state.whatsapp_notifier,
+            )
+            if result.get("unsubscribed"):
+                logging.getLogger(__name__).info(
+                    "inbound scan: %s", result,
+                )
+        except Exception:
+            logging.getLogger(__name__).exception("inbound scan failed")
+
     scheduler = build_scheduler(
         fetch_fn=fetch_job, send_fn=send_job,
         prune_fn=prune_job, health_fn=health_job,
+        inbound_fn=inbound_job if settings.bridge_db_path else None,
     )
     scheduler.start()
     app.state.scheduler = scheduler

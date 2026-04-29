@@ -1,12 +1,14 @@
 """APScheduler setup.
 
-Three daily ET-anchored jobs:
+Daily ET-anchored jobs:
 
   prune     03:00       cleans old data
   send      06:00-19:00 hourly — adaptive: tries to ship the daily digest
                                every hour until either yesterday's MPD
                                batch lands or we hit the 7 PM cutoff.
                                Each invocation also runs a fresh fetch.
+  inbound   every 5 min — scans the WhatsApp bridge DB for "STOP" replies
+                          and unsubscribes the matching subscribers.
   health    23:00       end-of-day snapshot
 
 The standalone fetch job is gone: every hourly send trigger fetches first,
@@ -18,9 +20,10 @@ from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 ET = ZoneInfo("America/New_York")
-JOB_IDS = ("prune", "send", "health")
+JOB_IDS = ("prune", "send", "inbound", "health")
 
 
 def build_scheduler(
@@ -28,6 +31,7 @@ def build_scheduler(
     send_fn: Callable[[], Awaitable[None]],
     prune_fn: Callable[[], Awaitable[None]],
     health_fn: Callable[[], Awaitable[None]],
+    inbound_fn: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncIOScheduler:
     s = AsyncIOScheduler(timezone=ET)
     s.add_job(prune_fn, CronTrigger(hour=3, minute=0, timezone=ET), id="prune")
@@ -36,5 +40,7 @@ def build_scheduler(
         CronTrigger(hour="6-19", minute=0, timezone=ET),
         id="send",
     )
+    if inbound_fn is not None:
+        s.add_job(inbound_fn, IntervalTrigger(minutes=5), id="inbound")
     s.add_job(health_fn, CronTrigger(hour=23, minute=0, timezone=ET), id="health")
     return s
