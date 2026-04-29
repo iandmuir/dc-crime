@@ -125,12 +125,90 @@ function renderCrimes(fc) {
 }
 
 function describeCrash(p) {
+  // Title prefers the most consequential framing — vulnerable users first,
+  // then severity. Specific verbs ("killed" / "struck") read more like a
+  // news headline than the older generic "Crash with X injury".
+  const inj = p.injuries || {};
+  if (inj.pedestrian?.fatal) return 'Pedestrian killed';
+  if (inj.bicyclist?.fatal) return 'Cyclist killed';
   if (p.fatal > 0) return 'Fatal crash';
-  if (p.ped_struck) return 'Pedestrian struck';
-  if (p.bike_struck) return 'Cyclist struck';
+  if (inj.pedestrian?.major) return 'Pedestrian struck — major injury';
+  if (inj.bicyclist?.major) return 'Cyclist struck — major injury';
+  if (inj.pedestrian?.minor) return 'Pedestrian struck';
+  if (inj.bicyclist?.minor) return 'Cyclist struck';
   if (p.major_injury > 0) return 'Crash with major injury';
   if (p.minor_injury > 0) return 'Crash with minor injury';
-  return 'Crash (property damage)';
+  return 'Crash — property damage only';
+}
+
+const ROLE_GLYPH = {
+  pedestrian: '🚶', bicyclist: '🚲', driver: '🧑‍✈️', passenger: '👤',
+};
+
+function involvedLine(involved) {
+  if (!involved) return '';
+  const parts = [];
+  // Group cars + taxis + gov as "vehicles" (with a parenthetical breakdown
+  // when meaningful) so the line reads cleanly.
+  const totalCars = (involved.cars || 0) + (involved.taxis || 0) + (involved.government || 0);
+  if (totalCars > 0) {
+    let label = `🚗 ${totalCars}`;
+    const detail = [];
+    if (involved.taxis) detail.push(`${involved.taxis} taxi${involved.taxis > 1 ? 's' : ''}`);
+    if (involved.government) detail.push(`${involved.government} gov`);
+    if (detail.length) label += ` (${detail.join(', ')})`;
+    parts.push(label);
+  }
+  if (involved.bicycles) parts.push(`🚲 ${involved.bicycles}`);
+  if (involved.pedestrians) parts.push(`🚶 ${involved.pedestrians}`);
+  return parts.join(' · ');
+}
+
+function injuriesLine(injuries) {
+  if (!injuries) return '';
+  const out = [];
+  // Order: pedestrian, bicyclist, driver, passenger — vulnerable first.
+  const order = ['pedestrian', 'bicyclist', 'driver', 'passenger'];
+  for (const role of order) {
+    const counts = injuries[role] || {};
+    const bits = [];
+    if (counts.fatal) bits.push(`${counts.fatal} killed`);
+    if (counts.major) bits.push(`${counts.major} major`);
+    if (counts.minor) bits.push(`${counts.minor} minor`);
+    if (bits.length) {
+      out.push(`${ROLE_GLYPH[role]} ${bits.join(', ')}`);
+    }
+  }
+  return out.length ? out.join(' · ') : 'no injuries reported';
+}
+
+function factorsLine(factors) {
+  if (!factors) return '';
+  const out = [];
+  if (factors.speeding) out.push('⚠️ speeding');
+  if (factors.impaired) out.push('⚠️ impaired');
+  return out.join(' · ');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function crashPopupHtml(p) {
+  const rows = [
+    `<div class="pop-title">${escapeHtml(describeCrash(p))}</div>`,
+    `<div class="pop-row"><span class="k">where</span><span class="v">${escapeHtml(p.address || '')}</span></div>`,
+    `<div class="pop-row"><span class="k">when</span><span class="v">${escapeHtml(fmtDate(p.report_dt))}</span></div>`,
+  ];
+  const involved = involvedLine(p.involved);
+  if (involved) rows.push(`<div class="pop-row"><span class="k">involved</span><span class="v">${involved}</span></div>`);
+  const inj = injuriesLine(p.injuries);
+  if (inj) rows.push(`<div class="pop-row"><span class="k">injured</span><span class="v">${inj}</span></div>`);
+  const factors = factorsLine(p.factors);
+  if (factors) rows.push(`<div class="pop-row"><span class="k">factors</span><span class="v">${factors}</span></div>`);
+  return rows.join('');
 }
 
 function renderCrashes(fc) {
@@ -144,12 +222,9 @@ function renderCrashes(fc) {
       html: `<div class="crash-icon t${t}"></div>`,
       iconSize: [16,16], iconAnchor: [8,8],
     });
-    const p = f.properties;
     L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]], { icon })
       .addTo(crashLayer)
-      .bindPopup(`<div class="pop-title">${describeCrash(p)}</div>
-                  <div class="pop-row"><span class="k">where</span><span class="v">${p.address || ''}</span></div>
-                  <div class="pop-row"><span class="k">when</span><span class="v">${fmtDate(p.report_dt)}</span></div>`);
+      .bindPopup(crashPopupHtml(f.properties));
   });
   for (let i=1; i<=4; i++) document.getElementById('cleg-'+i).textContent = counts[i-1];
   document.getElementById('layer-crash-count').textContent = fc.features.length;
