@@ -19,7 +19,9 @@
       {% for s in pending %}
       <li class="pending-item">
         <div class="pending-info">
-          <div><strong>{{ s.display_name }}</strong> · {{ s.preferred_channel }} · {{ s.address_text }} ({{ s.radius_m }}m)</div>
+          <div><strong>{{ s.display_name }}</strong> · {{ s.preferred_channel }} ·
+            <span class="mono" style="font-size:.85rem;">{{ s.email or s.phone }}</span></div>
+          <div style="font-size:.85rem; color:var(--ink-2);">{{ s.address_text }} ({{ s.radius_m }}m)</div>
           <div class="mono" style="font-size:.74rem; color: var(--ink-3); margin-top:.2rem;">{{ s.created_at }}</div>
         </div>
         <div class="pending-actions">
@@ -28,6 +30,62 @@
           </form>
           <form method="post" action="/a/{{ s.review_token }}/reject" style="display:inline">
             <button type="submit" class="btn btn-secondary btn-sm">Reject</button>
+          </form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if approved %}
+    <h3 class="card-eyebrow" style="margin-top:1.5rem;">approved</h3>
+    <ul class="pending-list">
+      {% for s in approved %}
+      <li class="pending-item">
+        <div class="pending-info">
+          <div><strong>{{ s.display_name }}</strong> · {{ s.preferred_channel }} ·
+            <span class="mono" style="font-size:.85rem;">{{ s.email or s.phone }}</span></div>
+          <div style="font-size:.85rem; color:var(--ink-2);">{{ s.address_text }} ({{ s.radius_m }}m)</div>
+          <div class="mono" style="font-size:.74rem; color: var(--ink-3); margin-top:.2rem;">
+            approved {{ s.approved_at or s.created_at }}{% if s.last_sent_at %} · last sent {{ s.last_sent_at }}{% endif %}
+          </div>
+        </div>
+        <div class="pending-actions">
+          <form method="post" action="/admin/subscriber/{{ s.id }}/unsubscribe" style="display:inline">
+            <input type="hidden" name="token" value="{{ token }}" />
+            <button type="submit" class="btn btn-secondary btn-sm">Unsubscribe</button>
+          </form>
+          <form method="post" action="/admin/subscriber/{{ s.id }}/delete" style="display:inline"
+                onsubmit="return confirm('Permanently delete {{ s.display_name }}? This cannot be undone.');">
+            <input type="hidden" name="token" value="{{ token }}" />
+            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+          </form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if rejected or unsubscribed %}
+    <h3 class="card-eyebrow" style="margin-top:1.5rem;">archived</h3>
+    <ul class="pending-list">
+      {% for s in rejected + unsubscribed %}
+      <li class="pending-item">
+        <div class="pending-info">
+          <div>
+            <strong>{{ s.display_name }}</strong> ·
+            <span class="mono" style="font-size:.78rem; color:var(--ink-3); text-transform:uppercase;">{{ s.status }}</span> ·
+            <span class="mono" style="font-size:.85rem;">{{ s.email or s.phone }}</span>
+          </div>
+          <div class="mono" style="font-size:.74rem; color: var(--ink-3); margin-top:.2rem;">
+            {{ s.unsubscribed_at or s.created_at }}
+          </div>
+        </div>
+        <div class="pending-actions">
+          <form method="post" action="/admin/subscriber/{{ s.id }}/delete" style="display:inline"
+                onsubmit="return confirm('Permanently delete {{ s.display_name }}?');">
+            <input type="hidden" name="token" value="{{ token }}" />
+            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
           </form>
         </div>
       </li>

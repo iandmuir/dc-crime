@@ -1,12 +1,12 @@
 """Subscriber CRUD."""
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 VALID_STATUSES = {"PENDING", "APPROVED", "REJECTED", "UNSUBSCRIBED"}
 
 
 def _utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def insert_pending(
@@ -63,3 +63,11 @@ def list_by_status(db: sqlite3.Connection, status: str) -> list[dict]:
     rows = db.execute("SELECT * FROM subscribers WHERE status=? ORDER BY created_at DESC",
                       (status,)).fetchall()
     return [dict(r) for r in rows]
+
+
+def delete(db: sqlite3.Connection, sid: str) -> bool:
+    """Hard-delete a subscriber and its send_log rows. Returns True if a row was removed."""
+    cur = db.execute("DELETE FROM subscribers WHERE id=?", (sid,))
+    db.execute("DELETE FROM send_log WHERE subscriber_id=?", (sid,))
+    db.commit()
+    return cur.rowcount > 0

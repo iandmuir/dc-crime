@@ -1,8 +1,9 @@
 from datetime import date
 
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
+from wswdy.repos import subscribers as subs_repo
 from wswdy.repos.fetch_log import last_attempt
 from wswdy.repos.send_log import recent_failures, send_volume_last_n_days
 from wswdy.repos.subscribers import list_by_status
@@ -11,12 +12,18 @@ from wswdy.tokens import sign
 router = APIRouter()
 
 
+def _check_admin(request: Request, token: str) -> Response | None:
+    if not token or token != request.app.state.settings.admin_token:
+        return Response(status_code=401, content="unauthorized")
+    return None
+
+
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, token: str = ""):
-    settings = request.app.state.settings
-    if not token or token != settings.admin_token:
-        return Response(status_code=401, content="unauthorized")
+    if (resp := _check_admin(request, token)) is not None:
+        return resp
 
+    settings = request.app.state.settings
     db = request.app.state.db
     pending = list_by_status(db, "PENDING")
     # Generate per-subscriber review tokens so the admin can approve inline.
@@ -44,3 +51,21 @@ async def admin_dashboard(request: Request, token: str = ""):
         "failures": recent_failures(db, limit=20),
         "token": token,
     })
+
+
+@router.post("/admin/subscriber/{sid}/delete")
+async def admin_delete_subscriber(request: Request, sid: str, token: str = Form(...)):
+    if (resp := _check_admin(request, token)) is not None:
+        return resp
+    subs_repo.delete(request.app.state.db, sid)
+    return RedirectResponse(url=f"/admin?token={token}", status_code=303)
+
+
+@router.post("/admin/subscriber/{sid}/unsubscribe")
+async def admin_unsubscribe_subscriber(request: Request, sid: str, token: str = Form(...)):
+    if (resp := _check_admin(request, token)) is not None:
+        return resp
+    db = request.app.state.db
+    if subs_repo.get(db, sid):
+        subs_repo.set_status(db, sid, "UNSUBSCRIBED")
+    return RedirectResponse(url=f"/admin?token={token}", status_code=303)
