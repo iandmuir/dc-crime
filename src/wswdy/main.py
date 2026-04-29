@@ -23,6 +23,7 @@ from wswdy.notifiers.whatsapp import WhatsAppMcpNotifier
 from wswdy.routes import (
     admin,
     admin_review,
+    api_crashes,
     api_crimes,
     api_preview,
     health,
@@ -176,6 +177,7 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(admin.router)
     app.include_router(admin_review.router)
+    app.include_router(api_crashes.router)
     app.include_router(api_crimes.router)
     app.include_router(api_preview.router)
     app.include_router(health.router)
