@@ -750,12 +750,13 @@ body {
 .marker.t3 { background: var(--t3); }
 .marker.t4 { background: var(--t4); }
 
-/* Crash markers — square with a stem so they read as "incident on a road"
-   and are visually distinct from the round crime dots. Same severity
-   palette but different shape for at-a-glance differentiation. */
+/* Crash markers — diamonds (rotated squares) so they're visually distinct
+   from the round crime dots. Same severity palette but different shape
+   for at-a-glance differentiation. */
 .crash-icon {
   width: 16px;
   height: 16px;
+  margin: 0 auto;
   border: 2px solid var(--surface);
   box-shadow: 0 1px 3px rgba(0,0,0,0.25);
   transform: rotate(45deg);
@@ -764,7 +765,21 @@ body {
 .crash-icon.t1 { background: #0a0a0a; }              /* fatal — black */
 .crash-icon.t2 { background: var(--t1); }             /* major — red */
 .crash-icon.t3 { background: var(--t2); }             /* minor — orange */
-.crash-icon.t4 { background: var(--surface-3); border-color: var(--ink-4); }  /* property — neutral */
+
+/* Property-only crashes are the most common — most blocks see several
+   per week. Render them noticeably smaller and quieter so they recede
+   into background context and don't drown out the marker tiers that
+   actually involved injuries. */
+.crash-icon.t4 {
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;  /* re-center the smaller diamond in the 16x16 hitbox */
+  background: var(--ink-4);
+  border-color: var(--surface);
+  border-width: 1px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  opacity: 0.65;
+}
 
 /* Layer toggle (crimes / crashes checkboxes in the sidebar) */
 .layer-toggle {
@@ -815,15 +830,23 @@ body {
   color: var(--ink-3);
 }
 
-/* Crash legend swatches use the same diamond shape as the markers */
-.crash-swatch {
+/* Crash legend swatches use the same diamond shape as the markers.
+   Selectors here qualify with .legend-row to beat the round
+   `.legend-row .swatch { border-radius: 50% }` rule defined earlier. */
+.legend-row .swatch.crash-swatch {
   border-radius: 2px;
   transform: rotate(45deg);
 }
-.crash-swatch.t1 { background: #0a0a0a; }
-.crash-swatch.t2 { background: var(--t1); }
-.crash-swatch.t3 { background: var(--t2); }
-.crash-swatch.t4 { background: var(--surface-3); border: 1px solid var(--ink-4); }
+.legend-row .swatch.crash-swatch.t1 { background: #0a0a0a; }
+.legend-row .swatch.crash-swatch.t2 { background: var(--t1); }
+.legend-row .swatch.crash-swatch.t3 { background: var(--t2); }
+/* "Property only" swatch matches the smaller, faded marker style on the map */
+.legend-row .swatch.crash-swatch.t4 {
+  background: var(--ink-4);
+  width: 7px;
+  height: 7px;
+  opacity: 0.65;
+}
 
 /* Leaflet popup styling */
 .pop-title {
