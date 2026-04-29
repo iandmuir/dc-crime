@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     admin_token: str
 
     maptiler_api_key: str
+    geoapify_api_key: str = ""
 
     mpd_feed_url: HttpUrl = Field(
         "https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/FeatureServer/39/query"

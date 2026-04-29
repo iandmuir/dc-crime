@@ -1,4 +1,3 @@
-import sqlite3
 from wswdy.db import connect, init_schema
 
 

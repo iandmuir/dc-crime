@@ -1,4 +1,5 @@
 import pytest
+
 from wswdy.tiers import classify, tier_label
 
 CASES = [

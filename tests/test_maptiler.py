@@ -2,11 +2,7 @@ import httpx
 import pytest
 import respx
 
-from wswdy.clients.maptiler import (
-    GeocodeError,
-    geocode_address,
-    render_static_map,
-)
+from wswdy.clients.maptiler import GeocodeError, geocode_address
 
 
 @respx.mock
@@ -38,19 +34,3 @@ async def test_geocode_outside_dc_raises():
     }))
     with pytest.raises(GeocodeError, match="outside DC"):
         await geocode_address("Baltimore", api_key="K")
-
-
-@respx.mock
-async def test_render_static_map_writes_png(tmp_path):
-    respx.get(host="api.maptiler.com").mock(
-        return_value=httpx.Response(200, content=b"\x89PNG\r\n\x1a\n" + b"\x00" * 100,
-                                    headers={"content-type": "image/png"})
-    )
-    out = tmp_path / "preview.png"
-    await render_static_map(
-        api_key="K", center_lat=38.9, center_lon=-77.0, radius_m=1000,
-        markers=[(38.91, -77.03, 1), (38.90, -77.02, 4)],
-        out_path=out, width=600, height=400,
-    )
-    assert out.exists()
-    assert out.read_bytes().startswith(b"\x89PNG")
