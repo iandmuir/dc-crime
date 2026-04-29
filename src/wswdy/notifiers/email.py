@@ -146,7 +146,7 @@ def _render_html(text: str, *, has_image: bool, unsubscribe_url: str | None) -> 
             f"<div style='margin-top:18px;padding-top:14px;border-top:1px solid #E5E3DC;"
             f"font: 12px/1.5 -apple-system, system-ui, sans-serif;color:#737373;"
             f"text-align:center;'>"
-            f"You're getting this because you signed up at dccrime.iandmuir.com. "
+            f"You're getting this because you signed up at wtfdc.iandmuir.com. "
             f"<a href='{_escape(unsubscribe_url)}' style='color:#737373;'>"
             f"Unsubscribe</a>."
             f"</div>"

@@ -24,7 +24,7 @@ async def run_health_snapshot(
     fails = recent_failures(db, limit=5)
 
     lines = [
-        f"wswdy daily health — {today}",
+        f"WTF daily health — {today}",
         "",
         f"Subscribers: {approved} approved · {pending} pending · {unsub} unsubscribed",
         (
@@ -44,7 +44,7 @@ async def run_health_snapshot(
     text = "\n".join(lines)
     res = await email.send(
         recipient=admin_email,
-        subject=f"[wswdy] daily snapshot {today}",
+        subject=f"[WTF] daily snapshot {today}",
         text=text,
         image_path=None,
     )
