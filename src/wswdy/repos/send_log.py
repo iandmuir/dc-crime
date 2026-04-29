@@ -22,6 +22,18 @@ def exists_for_today(db: sqlite3.Connection, subscriber_id: str,
     return row is not None
 
 
+def any_sent_today(db: sqlite3.Connection, send_date: str) -> bool:
+    """True if at least one row exists for the given send_date (any subscriber/channel/status).
+
+    Used by the adaptive send job to make sure we only attempt one digest run
+    per calendar day even if the hourly trigger fires multiple times.
+    """
+    row = db.execute(
+        "SELECT 1 FROM send_log WHERE send_date=? LIMIT 1", (send_date,),
+    ).fetchone()
+    return row is not None
+
+
 def recent_failures(db: sqlite3.Connection, limit: int = 20) -> list[dict]:
     rows = db.execute(
         "SELECT * FROM send_log WHERE status='failed' ORDER BY sent_at DESC LIMIT ?",

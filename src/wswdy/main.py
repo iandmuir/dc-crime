@@ -15,7 +15,7 @@ from wswdy.db import connect, init_schema
 from wswdy.jobs.fetch import run_fetch
 from wswdy.jobs.health import run_health_snapshot
 from wswdy.jobs.prune import run_prune
-from wswdy.jobs.send import run_daily_sends
+from wswdy.jobs.send import run_send_if_ready
 from wswdy.notifiers.email import EmailNotifier
 from wswdy.notifiers.whatsapp import WhatsAppMcpNotifier
 from wswdy.routes import (
@@ -52,8 +52,22 @@ async def lifespan(app: FastAPI):
         )
 
     async def send_job():
+        """Hourly adaptive trigger. Fetches MPD data, then sends the daily
+        digest only if yesterday's data has landed or we've hit the cutoff."""
         from wswdy.clients.geoapify import render_static_map
 
+        # Step 1: refresh the feed before deciding (cheap, ~1500 rows)
+        try:
+            await run_fetch(
+                db=app.state.db, feed_url=str(settings.mpd_feed_url),
+                alerter=app.state.alerter, fixture_path=settings.fixture_mpd_path,
+            )
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "send_job: pre-send fetch failed; will evaluate freshness from existing data"
+            )
+
+        # Step 2: decide whether to send
         async def render(*, center_lat, center_lon, radius_m, markers, out_path):
             return await render_static_map(
                 api_key=settings.geoapify_api_key,
@@ -62,25 +76,25 @@ async def lifespan(app: FastAPI):
             )
 
         now_iso = datetime.now(UTC).isoformat(timespec="seconds")
-        send_date = str(date.today())
         # Default static_map_dir to {log_dir}/static_maps for backwards compat;
         # in production set WSWDY_STATIC_MAP_DIR to a path the WhatsApp bridge
         # user can read (it loads media by absolute file path).
         static_map_dir = Path(
             settings.static_map_dir or f"{settings.log_dir}/static_maps"
         )
-        await run_daily_sends(
+        result = await run_send_if_ready(
             db=app.state.db,
             email=app.state.email_notifier,
             whatsapp=app.state.whatsapp_notifier,
             alerter=app.state.alerter,
             base_url=settings.base_url,
             hmac_secret=settings.hmac_secret,
-            send_date=send_date, now_iso=now_iso,
-            stagger=(settings.env != "dev"),
+            now_iso=now_iso,
+            cutoff_hour_et=settings.send_cutoff_hour_et,
             render_static_map=render,
             static_map_dir=static_map_dir,
         )
+        logging.getLogger(__name__).info("send_job result: %s", result)
 
     async def prune_job():
         run_prune(app.state.db,
