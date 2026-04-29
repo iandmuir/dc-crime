@@ -14,7 +14,8 @@ class SendResult:
 @runtime_checkable
 class Notifier(Protocol):
     async def send(self, *, recipient: str, subject: str, text: str,
-                   image_path: Path | None) -> SendResult: ...
+                   image_path: Path | None,
+                   unsubscribe_url: str | None = None) -> SendResult: ...
 
 
 async def dispatch(
@@ -25,15 +26,21 @@ async def dispatch(
     subject: str,
     text: str,
     image_path: "Path | None",
+    unsubscribe_url: "str | None" = None,
 ) -> SendResult:
     """Send to the subscriber's preferred channel; falls back to email if WhatsApp
     is unreachable AND email is on file. Does NOT fall back on session_expired
-    (operator-actionable — don't double-send)."""
+    (operator-actionable — don't double-send).
+
+    `unsubscribe_url` is optional metadata the email notifier renders into a
+    footer link in the HTML body. The plain-text body and WhatsApp messages
+    don't show it (WhatsApp users use "STOP" replies instead)."""
     channel = subscriber["preferred_channel"]
     if channel == "email":
         return await email_notifier.send(
             recipient=subscriber["email"], subject=subject,
             text=text, image_path=image_path,
+            unsubscribe_url=unsubscribe_url,
         )
 
     # WhatsApp path
@@ -47,4 +54,5 @@ async def dispatch(
     return await email_notifier.send(
         recipient=subscriber["email"], subject=subject,
         text=text, image_path=image_path,
+        unsubscribe_url=unsubscribe_url,
     )
