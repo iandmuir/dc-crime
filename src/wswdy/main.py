@@ -59,6 +59,12 @@ async def lifespan(app: FastAPI):
 
         now_iso = datetime.now(UTC).isoformat(timespec="seconds")
         send_date = str(date.today())
+        # Default static_map_dir to {log_dir}/static_maps for backwards compat;
+        # in production set WSWDY_STATIC_MAP_DIR to a path the WhatsApp bridge
+        # user can read (it loads media by absolute file path).
+        static_map_dir = Path(
+            settings.static_map_dir or f"{settings.log_dir}/static_maps"
+        )
         await run_daily_sends(
             db=app.state.db,
             email=app.state.email_notifier,
@@ -69,7 +75,7 @@ async def lifespan(app: FastAPI):
             send_date=send_date, now_iso=now_iso,
             stagger=(settings.env != "dev"),
             render_static_map=render,
-            static_map_dir=Path(settings.log_dir) / "static_maps",
+            static_map_dir=static_map_dir,
         )
 
     async def prune_job():
