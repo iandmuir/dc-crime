@@ -3,12 +3,20 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from wswdy.geo import haversine_m
-from wswdy.tiers import classify
+from wswdy.tiers import classify, classify_crash
 
 ET = ZoneInfo("America/New_York")
 
 _TIER_GLYPH = {1: "🔴", 2: "🟠", 3: "🟡", 4: "🟢"}
 _TIER_LABEL = {1: "violent", 2: "serious property", 3: "vehicle", 4: "petty"}
+
+# Crash tier glyphs use a different palette so subscribers can tell at a
+# glance which section they're reading. Black for fatalities, then descending
+# severity in red/orange/grey.
+_CRASH_TIER_GLYPH = {1: "⚫", 2: "🔴", 3: "🟠", 4: "⚪"}
+_CRASH_TIER_LABEL = {
+    1: "fatal", 2: "major injuries", 3: "minor injuries", 4: "property damage",
+}
 
 
 def summarize_by_tier(crimes: list[dict]) -> dict[int, int]:
@@ -57,6 +65,58 @@ def _tier_examples(crimes: list[dict], tier: int) -> str:
     return ", ".join(parts)
 
 
+def _summarize_crashes_by_tier(crashes: list[dict]) -> dict[int, int]:
+    counts = {1: 0, 2: 0, 3: 0, 4: 0}
+    for c in crashes:
+        counts[classify_crash(c)] += 1
+    return counts
+
+
+def _crash_callout_lines(crashes: list[dict]) -> list[str]:
+    """Pull out fatal + ped/cyclist-major-injury crashes for inline mentions.
+    These are the highest-stakes crashes for a neighborhood newsletter."""
+    callouts: list[str] = []
+    for c in crashes:
+        if (c.get("fatal") or 0) > 0:
+            callouts.append(f"⚫ Fatal crash — {c.get('address') or 'address unknown'}")
+        elif (c.get("ped_major") or 0) > 0:
+            callouts.append(
+                f"🔴 Pedestrian struck — {c.get('address') or 'address unknown'}"
+            )
+        elif (c.get("bike_major") or 0) > 0:
+            callouts.append(
+                f"🔴 Cyclist struck — {c.get('address') or 'address unknown'}"
+            )
+    return callouts[:3]  # cap so the digest doesn't balloon
+
+
+def _crash_section_lines(crashes: list[dict], radius_str: str) -> list[str]:
+    """Render the crashes block. Returns [] if we should omit the section
+    (we render even when zero so it reads like a quiet weather report)."""
+    n = len(crashes)
+    lines: list[str] = []
+    lines.append("")
+    if n == 0:
+        lines.append(
+            f"🚦 No crashes reported within {radius_str} in the last 7 days."
+        )
+        return lines
+
+    counts = _summarize_crashes_by_tier(crashes)
+    lines.append(f"🚦 Crashes within {radius_str} (last 7 days):")
+    for tier in (1, 2, 3, 4):
+        c = counts[tier]
+        if c == 0:
+            continue
+        lines.append(f"{_CRASH_TIER_GLYPH[tier]} {c} {_CRASH_TIER_LABEL[tier]}")
+
+    callouts = _crash_callout_lines(crashes)
+    if callouts:
+        lines.append("")
+        lines.extend(callouts)
+    return lines
+
+
 def build_digest_text(
     *,
     display_name: str,
@@ -66,6 +126,7 @@ def build_digest_text(
     home_lon: float,
     map_url: str,
     unsubscribe_url: str,
+    crashes: list[dict] | None = None,
     mpd_warning: bool = False,
 ) -> str:
     """Build the full digest message body."""
@@ -108,6 +169,12 @@ def build_digest_text(
             lines.append(f"• {offense} — {c['distance_m']}m away ({c['block_address']}, {t})")
     else:
         lines.append("No incidents reported in your immediate vicinity. ✨")
+
+    # Crashes section — rolling 7-day window. We show it even when zero
+    # because the absence is reassuring (and the section's existence is
+    # data — readers know the feed was checked).
+    if crashes is not None:
+        lines.extend(_crash_section_lines(crashes, radius_str))
 
     lines.append("")
     lines.append(f"🗺️ Map: {map_url}")

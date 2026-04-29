@@ -46,8 +46,10 @@ def test_build_digest_text_includes_all_required_pieces():
     assert "0 serious property" in text
     assert "1 vehicle" in text
     assert "1 petty" in text
+    # Map URL appears in the body; unsub URL does NOT (we just say "Reply STOP")
     assert "https://x/map/abc?token=t" in text
-    assert "https://x/u/abc?token=t" in text
+    assert "Reply STOP" in text
+    assert "https://x/u/abc?token=t" not in text
 
 
 def test_build_digest_zero_crimes_uses_quiet_phrasing():
@@ -68,6 +70,84 @@ def test_build_digest_appends_mpd_warning_when_flagged():
         mpd_warning=True,
     )
     assert "MPD data" in text or "delayed" in text.lower()
+
+
+def _crash(**props):
+    base = {
+        "id": "C1", "address": "1500 14TH ST NW",
+        "fatal": 0, "major_injury": 0, "minor_injury": 0,
+        "ped_fatal": 0, "ped_major": 0, "bike_fatal": 0, "bike_major": 0,
+    }
+    base.update(props)
+    return base
+
+
+def test_digest_omits_crash_section_when_crashes_arg_is_none():
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=CRIMES,
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        crashes=None,
+    )
+    assert "Crashes" not in text
+    assert "🚦" not in text
+
+
+def test_digest_zero_crashes_renders_quiet_section():
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=CRIMES,
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        crashes=[],
+    )
+    assert "🚦 No crashes" in text
+    assert "last 7 days" in text
+
+
+def test_digest_renders_crash_tier_counts():
+    crashes = [
+        _crash(id="A", fatal=1),
+        _crash(id="B", major_injury=1, ped_major=1),
+        _crash(id="C", major_injury=2),
+        _crash(id="D", minor_injury=1),
+        _crash(id="E"),
+        _crash(id="F"),
+    ]
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=[],
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        crashes=crashes,
+    )
+    assert "🚦 Crashes within 1,000m" in text
+    assert "1 fatal" in text
+    assert "2 major injuries" in text
+    assert "1 minor injuries" in text
+    assert "2 property damage" in text
+
+
+def test_digest_calls_out_pedestrian_strikes():
+    crashes = [_crash(id="A", major_injury=1, ped_major=1, address="500 WISCONSIN AVE NW")]
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=[],
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        crashes=crashes,
+    )
+    assert "Pedestrian struck" in text
+    assert "500 WISCONSIN AVE NW" in text
+
+
+def test_digest_caps_callouts_at_three():
+    crashes = [_crash(id=str(i), fatal=1) for i in range(8)]
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=[],
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        crashes=crashes,
+    )
+    # 8 fatal crashes total but only 3 inline callouts
+    assert text.count("Fatal crash") == 3
 
 
 def test_select_closest_caps_at_max_items():

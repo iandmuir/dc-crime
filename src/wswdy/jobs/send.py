@@ -25,6 +25,7 @@ def _parse_iso_as_utc(s: str) -> datetime:
 from wswdy.alerts import AdminAlerter
 from wswdy.digest import build_digest_text
 from wswdy.notifiers.base import Notifier, dispatch
+from wswdy.repos.crashes import list_in_radius_window as list_crashes_in_radius_window
 from wswdy.repos.crimes import list_in_radius_window
 from wswdy.repos.fetch_log import last_successful
 from wswdy.repos.send_log import any_sent_today, exists_for_today, record
@@ -68,6 +69,10 @@ async def run_daily_sends(
     start_iso = start_dt.isoformat(timespec="seconds")
     end_iso = now_dt.isoformat(timespec="seconds")
 
+    # Crashes use a rolling 7-day window because DC's crash feed lags 3-5
+    # days behind real time — a 24h window would almost always be empty.
+    crash_start_iso = (now_dt - timedelta(days=7)).isoformat(timespec="seconds")
+
     if stagger:
         random.shuffle(actives)
 
@@ -83,6 +88,10 @@ async def run_daily_sends(
             db, sub["lat"], sub["lon"], sub["radius_m"],
             start=start_iso, end=end_iso,
         )
+        crashes = list_crashes_in_radius_window(
+            db, sub["lat"], sub["lon"], sub["radius_m"],
+            start=crash_start_iso, end=end_iso,
+        )
 
         map_token = sign(hmac_secret, purpose="map", subscriber_id=sub["id"])
         unsub_token = sign(hmac_secret, purpose="unsubscribe", subscriber_id=sub["id"])
@@ -91,7 +100,8 @@ async def run_daily_sends(
 
         text = build_digest_text(
             display_name=sub["display_name"], radius_m=sub["radius_m"],
-            crimes=crimes, home_lat=sub["lat"], home_lon=sub["lon"],
+            crimes=crimes, crashes=crashes,
+            home_lat=sub["lat"], home_lon=sub["lon"],
             map_url=map_url, unsubscribe_url=unsub_url,
             mpd_warning=mpd_warning,
         )

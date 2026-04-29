@@ -13,6 +13,7 @@ from wswdy.alerts import AdminAlerter
 from wswdy.config import get_settings
 from wswdy.db import connect, init_schema
 from wswdy.jobs.fetch import run_fetch
+from wswdy.jobs.fetch_crashes import run_crash_fetch
 from wswdy.jobs.health import run_health_snapshot
 from wswdy.jobs.inbound_scanner import run_inbound_scan
 from wswdy.jobs.prune import run_prune
@@ -57,7 +58,8 @@ async def lifespan(app: FastAPI):
         digest only if yesterday's data has landed or we've hit the cutoff."""
         from wswdy.clients.geoapify import render_static_map
 
-        # Step 1: refresh the feed before deciding (cheap, ~1500 rows)
+        # Step 1: refresh the feeds before deciding (cheap, ~1500 rows each).
+        # Crashes are best-effort — failure shouldn't block the send.
         try:
             await run_fetch(
                 db=app.state.db, feed_url=str(settings.mpd_feed_url),
@@ -65,7 +67,13 @@ async def lifespan(app: FastAPI):
             )
         except Exception:
             logging.getLogger(__name__).exception(
-                "send_job: pre-send fetch failed; will evaluate freshness from existing data"
+                "send_job: pre-send MPD fetch failed; will evaluate freshness from existing data"
+            )
+        try:
+            await run_crash_fetch(db=app.state.db)
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "send_job: pre-send crash fetch failed; digest will use whatever is in the DB"
             )
 
         # Step 2: decide whether to send
