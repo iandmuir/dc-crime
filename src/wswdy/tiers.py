@@ -35,3 +35,32 @@ def classify(offense: str, method: str | None) -> int:
 
 def tier_label(tier: int) -> str:
     return _LABELS[tier]
+
+
+# ----- Crash tier classification ----------------------------------------
+# Independent severity hierarchy (DC crashes have different fields than
+# crimes — injury counts per-role, fatality flags, etc.) but we reuse the
+# 1..4 tier convention so the digest can render them with the same glyphs.
+#
+# Tier 1: any fatality
+# Tier 2: any major injury (extra weight if pedestrian or cyclist)
+# Tier 3: any minor injury
+# Tier 4: property damage only
+_CRASH_LABELS: Final = {
+    1: "fatal", 2: "major injuries", 3: "minor injuries", 4: "property damage",
+}
+
+
+def classify_crash(crash: dict) -> int:
+    """Return tier 1..4 for a crash dict (matches the crashes-table column names)."""
+    if (crash.get("fatal") or 0) > 0:
+        return 1
+    if (crash.get("major_injury") or 0) > 0:
+        return 2
+    if (crash.get("minor_injury") or 0) > 0:
+        return 3
+    return 4
+
+
+def crash_tier_label(tier: int) -> str:
+    return _CRASH_LABELS[tier]

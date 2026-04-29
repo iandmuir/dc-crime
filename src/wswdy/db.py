@@ -60,6 +60,33 @@ CREATE TABLE IF NOT EXISTS fetch_log (
   error          TEXT
 );
 
+CREATE TABLE IF NOT EXISTS crashes (
+  id              TEXT PRIMARY KEY,    -- DC's CRIMEID (per-crash identifier)
+  ccn             TEXT,
+  report_dt       TIMESTAMP,           -- maps to FROMDATE in the feed (when the crash happened)
+  last_updated    TIMESTAMP,           -- maps to LASTUPDATEDATE in the feed
+  address         TEXT,
+  lat             REAL NOT NULL,
+  lon             REAL NOT NULL,
+  fatal           INTEGER NOT NULL DEFAULT 0,    -- total fatalities across all parties
+  major_injury    INTEGER NOT NULL DEFAULT 0,    -- total people with major injuries
+  minor_injury    INTEGER NOT NULL DEFAULT 0,    -- total people with minor injuries
+  ped_fatal       INTEGER NOT NULL DEFAULT 0,
+  ped_major       INTEGER NOT NULL DEFAULT 0,
+  bike_fatal      INTEGER NOT NULL DEFAULT 0,
+  bike_major      INTEGER NOT NULL DEFAULT 0,
+  total_vehicles  INTEGER NOT NULL DEFAULT 0,
+  total_pedestrians INTEGER NOT NULL DEFAULT 0,
+  total_bicycles  INTEGER NOT NULL DEFAULT 0,
+  speeding        INTEGER NOT NULL DEFAULT 0,
+  impaired        INTEGER NOT NULL DEFAULT 0,    -- any party impaired
+  ward            TEXT,
+  raw_json        TEXT,
+  fetched_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS crashes_report_dt_idx ON crashes(report_dt);
+CREATE INDEX IF NOT EXISTS crashes_geo_idx ON crashes(lat, lon);
+
 CREATE TABLE IF NOT EXISTS admin_alerts (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   alert_type     TEXT NOT NULL,
