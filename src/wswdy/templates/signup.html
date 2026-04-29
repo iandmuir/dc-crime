@@ -131,14 +131,20 @@
     });
   });
 
-  // Radius slider
+  // Element references (declared up front so all handlers can use them)
   const r = document.getElementById('radius');
   const num = document.getElementById('radius-num');
   const fill = document.getElementById('slider-fill');
   const thumb = document.getElementById('slider-thumb');
   const prevR = document.getElementById('prev-r');
+  const addrInput = document.getElementById('addr');
+  const addrStatus = document.getElementById('addr-status');
+  const latInput = document.getElementById('lat');
+  const lonInput = document.getElementById('lon');
   let debounceTimer;
+  let addrTimer;
 
+  // Radius slider
   function updateSlider() {
     const v = +r.value;
     const pct = ((v - 200) / 1800) * 100;
@@ -152,11 +158,6 @@
   updateSlider();
 
   // Address auto-resolution with live feedback
-  const addrInput = document.getElementById('addr');
-  const addrStatus = document.getElementById('addr-status');
-  const latInput = document.getElementById('lat');
-  const lonInput = document.getElementById('lon');
-  let addrTimer;
 
   function setStatus(state, msg) {
     addrStatus.className = 'addr-status' + (state ? ' is-' + state : '');
