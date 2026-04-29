@@ -135,23 +135,46 @@ async def fetch_recent_crashes(
     since_dt = datetime.now(UTC) - timedelta(days=lookback_days)
     since_str = since_dt.strftime("%Y-%m-%d %H:%M:%S")
     where = f"FROMDATE >= timestamp '{since_str}'"
-    params = {
+    # ArcGIS REST has a per-request cap (typically 1000-2000 records) that
+    # we silently hit when a 30-day window has more crashes than fits.
+    # Without orderByFields, the API returns OBJECTID ASC -> oldest first,
+    # which means the most recent crashes (the ones we actually need for
+    # the digest) get truncated. Sort DESC so we cap from the wrong end:
+    # if we lose anything, it's the oldest records, not the freshest.
+    # Also paginate via resultOffset until we've drained the window or
+    # the server tells us there's no more.
+    base_params = {
         "where": where,
         "outFields": "*",
         "f": "geojson",
-        # DC's server caps responses at ~2000 features; lookback windows beyond
-        # ~60 days may need pagination. 30 days is well under the cap (~1300
-        # crashes/month observed empirically).
+        "orderByFields": "FROMDATE DESC",
         "resultRecordCount": 2000,
     }
-    async with httpx.AsyncClient(timeout=timeout_s) as client:
-        r = await client.get(feed_url, params=params)
-        r.raise_for_status()
-        data = r.json()
 
     out: list[dict] = []
-    for feature in data.get("features") or []:
-        rec = _feature_to_record(feature)
-        if rec is not None:
-            out.append(rec)
+    seen_ids: set[str] = set()
+    offset = 0
+    async with httpx.AsyncClient(timeout=timeout_s) as client:
+        while True:
+            params = {**base_params, "resultOffset": offset}
+            r = await client.get(feed_url, params=params)
+            r.raise_for_status()
+            data = r.json()
+            features = data.get("features") or []
+            if not features:
+                break
+            for feature in features:
+                rec = _feature_to_record(feature)
+                if rec is None or rec["id"] in seen_ids:
+                    continue
+                seen_ids.add(rec["id"])
+                out.append(rec)
+            # ArcGIS sets exceededTransferLimit=true when there's more to fetch.
+            # If the field is missing or False, we're done.
+            if not data.get("exceededTransferLimit"):
+                break
+            offset += len(features)
+            # Safety: cap pagination so a misbehaving server can't loop forever.
+            if offset > 50_000:
+                break
     return out
