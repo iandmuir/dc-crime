@@ -41,18 +41,23 @@ class EmailNotifier:
     async def send(self, *, recipient: str, subject: str, text: str,
                    image_path: Path | None,
                    unsubscribe_url: str | None = None) -> SendResult:
-        # Build the HTML version of the body — always sent as
-        # multipart/alternative so HTML clients show the styled view with
-        # the unsubscribe footer link, while plain-text clients still get
-        # the readable text version.
-        html_body = _render_html(text, has_image=image_path is not None,
-                                 unsubscribe_url=unsubscribe_url)
+        # The shared digest text ends with "Reply STOP to unsubscribe.",
+        # which makes sense for WhatsApp but is meaningless for email
+        # (we don't parse inbound mail). Strip it for the email channel
+        # and replace with an unsubscribe URL line in plain text + the
+        # styled footer link in HTML.
+        plain_text = _email_plain_text(text, unsubscribe_url)
+        html_body = _render_html(
+            _strip_reply_stop(text),
+            has_image=image_path is not None,
+            unsubscribe_url=unsubscribe_url,
+        )
 
         if image_path is not None:
             # multipart/related > multipart/alternative > [text + html] + image
             related = MIMEMultipart("related")
             alternative = MIMEMultipart("alternative")
-            alternative.attach(MIMEText(text, "plain"))
+            alternative.attach(MIMEText(plain_text, "plain"))
             alternative.attach(MIMEText(html_body, "html"))
             related.attach(alternative)
             img_part = MIMEImage(image_path.read_bytes(), "png")
@@ -63,7 +68,7 @@ class EmailNotifier:
         else:
             # multipart/alternative with text + html
             alternative = MIMEMultipart("alternative")
-            alternative.attach(MIMEText(text, "plain"))
+            alternative.attach(MIMEText(plain_text, "plain"))
             alternative.attach(MIMEText(html_body, "html"))
             msg = alternative
 
@@ -93,6 +98,29 @@ class EmailNotifier:
             )
             return SendResult(ok=False, error=f"{type(e).__name__}: {e}", detail=str(e))
         return SendResult(ok=True)
+
+
+_REPLY_STOP_LINE = "Reply STOP to unsubscribe."
+
+
+def _strip_reply_stop(text: str) -> str:
+    """Remove the WhatsApp-style "Reply STOP" line from the digest body. Email
+    clients can't act on it, so we replace with a real link instead."""
+    # Strip line + any trailing/leading whitespace it left behind
+    out = text.replace("\n\n" + _REPLY_STOP_LINE, "")
+    out = out.replace("\n" + _REPLY_STOP_LINE, "")
+    out = out.replace(_REPLY_STOP_LINE, "")
+    return out.rstrip()
+
+
+def _email_plain_text(text: str, unsubscribe_url: str | None) -> str:
+    """Build the plain-text email body. Drops the WhatsApp-style 'Reply STOP'
+    line and (when present) appends a real unsubscribe URL the recipient
+    can click in any reasonable mail client."""
+    body = _strip_reply_stop(text)
+    if unsubscribe_url:
+        body += f"\n\nUnsubscribe: {unsubscribe_url}"
+    return body
 
 
 def _escape(s: str) -> str:
