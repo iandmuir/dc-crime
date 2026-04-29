@@ -155,7 +155,7 @@ def create_app() -> FastAPI:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    app = FastAPI(title="WTF", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="WTFDC", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
 
     app.state.db = connect(settings.db_path)

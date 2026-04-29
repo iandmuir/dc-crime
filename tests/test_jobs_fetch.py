@@ -54,7 +54,7 @@ async def test_fetch_all_attempts_fail_alerts_admin(db):
     assert out["status"] == "failed"
     assert last_attempt(db)["status"] == "failed"
     assert email.sent  # admin emailed
-    assert email.sent[0]["subject"].startswith("[WTF] mpd_down")
+    assert email.sent[0]["subject"].startswith("[WTFDC] mpd_down")
 
 
 async def test_fetch_uses_fixture_when_path_provided(db, tmp_path):

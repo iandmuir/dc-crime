@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_pass: str = ""
-    smtp_from: str = "WTF <noreply@iandmuir.com>"
+    smtp_from: str = "WTFDC <noreply@iandmuir.com>"
     admin_email: str = "iandmuir@gmail.com"
 
     whatsapp_mcp_url: str = ""
