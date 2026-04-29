@@ -2,12 +2,15 @@
 
 Background:
 - The bridge writes every inbound message (is_from_me=0) into its own
-  store/messages.db
-- For 1-to-1 conversations the recipient has actually replied to, sender
-  arrives as the bare phone-number digits ("12026422880") with no '+' or
-  domain suffix.
-- We compare those digits against subscribers.phone (after stripping non-
-  digits from our side too) to find the matching subscriber.
+  store/messages.db. The bridge also keeps whatsmeow's session state in
+  store/whatsapp.db, which has a whatsmeow_lid_map table mapping
+  WhatsApp's privacy "Linked IDs" back to phone numbers.
+- For some users WhatsApp routes inbound replies through the phone-form
+  chat ("12026422880@s.whatsapp.net"); for others (especially anyone who
+  has migrated to LIDs) they arrive as "<lid>@lid". We handle both:
+    * sender = bare phone digits → match against subscriber.phone directly
+    * sender = LID → look up in whatsmeow_lid_map.lid -> pn, then match
+- After resolution we strip non-digits from both sides and compare.
 
 Cadence: scheduled every few minutes via APScheduler. Each run queries only
 messages newer than the last seen timestamp (tracked in app_state) so we
@@ -46,6 +49,38 @@ def _open_bridge_readonly(bridge_db_path: str) -> sqlite3.Connection:
     return conn
 
 
+def _open_whatsmeow_readonly(messages_db_path: str) -> sqlite3.Connection | None:
+    """Open whatsapp.db (whatsmeow's session/state DB, sibling to messages.db)
+    read-only. Returns None if the file is missing — the scanner falls back
+    to direct phone matching only."""
+    wm_path = Path(messages_db_path).parent / "whatsapp.db"
+    if not wm_path.exists():
+        log.info("inbound_scan: whatsapp.db not found at %s; LID mapping disabled", wm_path)
+        return None
+    uri = f"file:{wm_path}?mode=ro"
+    conn = sqlite3.connect(uri, uri=True, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _resolve_sender_phone(wm_db: sqlite3.Connection | None, sender: str) -> str:
+    """Resolve a bridge sender ID (LID or phone-form) to bare phone digits.
+
+    Some inbound messages have sender = bare phone digits ("12026422880").
+    Others (since WhatsApp's LID migration) have sender = a LID like
+    "225687730401334". We check whatsmeow_lid_map and return the phone if
+    a mapping exists; otherwise return sender unchanged so the caller's
+    direct-phone match path can still try."""
+    if wm_db is None:
+        return sender
+    row = wm_db.execute(
+        "SELECT pn FROM whatsmeow_lid_map WHERE lid = ?", (sender,),
+    ).fetchone()
+    if row:
+        return row["pn"]
+    return sender
+
+
 async def run_inbound_scan(
     *,
     db: sqlite3.Connection,
@@ -60,6 +95,7 @@ async def run_inbound_scan(
 
     last_seen = app_state.get(db, LAST_SEEN_KEY)
     bridge = _open_bridge_readonly(bridge_db_path)
+    wm_db = _open_whatsmeow_readonly(bridge_db_path)
 
     try:
         if last_seen:
@@ -83,11 +119,22 @@ async def run_inbound_scan(
                 (DEFAULT_BACKFILL_LIMIT,),
             ).fetchall()
             rows = list(reversed(rows))  # process oldest -> newest
+
+        if not rows:
+            return {"status": "no_new_messages"}
+
+        # Resolve every STOP sender's phone via the LID map BEFORE we close
+        # the whatsmeow handle. (We close it together with `bridge` below.)
+        resolved: list[tuple[sqlite3.Row, str]] = []
+        for row in rows:
+            if not STOP_PATTERN.match(row["content"] or ""):
+                continue
+            phone_digits = _normalize_phone(_resolve_sender_phone(wm_db, row["sender"]))
+            resolved.append((row, phone_digits))
     finally:
         bridge.close()
-
-    if not rows:
-        return {"status": "no_new_messages"}
+        if wm_db is not None:
+            wm_db.close()
 
     # Build a phone -> subscriber lookup once
     actives = subs_repo.list_active(db)
@@ -99,20 +146,17 @@ async def run_inbound_scan(
     unsub_count = 0
     confirmations: list[tuple[str, str]] = []  # (recipient, name) for reply messages
 
-    for row in rows:
-        if not STOP_PATTERN.match(row["content"] or ""):
-            continue
-        sender_digits = _normalize_phone(row["sender"])
-        sub = phone_to_sub.get(sender_digits)
+    for row, phone_digits in resolved:
+        sub = phone_to_sub.get(phone_digits)
         if not sub:
             log.info(
-                "inbound_scan: STOP from %s but no matching APPROVED subscriber",
-                row["sender"],
+                "inbound_scan: STOP from sender=%s (resolved=%s) but no matching APPROVED subscriber",
+                row["sender"], phone_digits,
             )
             continue
         log.info(
-            "inbound_scan: unsubscribing %s (%s) on STOP",
-            sub["display_name"], sub["id"],
+            "inbound_scan: unsubscribing %s (%s) on STOP from %s",
+            sub["display_name"], sub["id"], row["sender"],
         )
         subs_repo.set_status(db, sub["id"], "UNSUBSCRIBED")
         unsub_count += 1
