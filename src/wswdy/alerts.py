@@ -46,8 +46,8 @@ class AdminAlerter:
         ).isoformat(timespec="seconds")
         set_suppressed_until(self.db, alert_type, until)
 
-        subject = f"[wswdy] {alert_type}"
-        text = f"{message}\n\n— wswdy admin alerter\n(suppressed for {self.suppression_hours}h)"
+        subject = f"[WTF] {alert_type}"
+        text = f"{message}\n\n— WTF admin alerter\n(suppressed for {self.suppression_hours}h)"
         await self.email.send(
             recipient=self.admin_email, subject=subject, text=text, image_path=None
         )

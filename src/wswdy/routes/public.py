@@ -127,7 +127,7 @@ async def signup_submit(
     )
     review_url = f"{settings.base_url}/a/{token}"
     body = (
-        f"New wswdy signup from {display_name}.\n\n"
+        f"New WTF signup from {display_name}.\n\n"
         f"Channel: {preferred_channel} ({email or phone})\n"
         f"Address: {place['display']}\n"
         f"Coords:  {place['lat']:.4f}, {place['lon']:.4f}\n"
@@ -138,7 +138,7 @@ async def signup_submit(
         _notify_admin_of_signup,
         email_notifier=request.app.state.email_notifier,
         admin_email=settings.admin_email,
-        subject=f"[wswdy] new signup: {display_name}",
+        subject=f"[WTF] new signup: {display_name}",
         body=body,
     )
 

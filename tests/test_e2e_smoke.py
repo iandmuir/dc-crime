@@ -67,7 +67,7 @@ async def test_full_happy_path(mock_geo, app, tmp_path):
     }, follow_redirects=False)
     assert r.status_code == 303
 
-    # 3. Admin gets the review email — subject is "[wswdy] new signup: Ian"
+    # 3. Admin gets the review email — subject is "[WTF] new signup: Ian"
     review_emails = [e for e in fake_email.sent if "new signup" in e["subject"].lower()]
     assert review_emails
     review_text = review_emails[-1]["text"]
@@ -83,7 +83,7 @@ async def test_full_happy_path(mock_geo, app, tmp_path):
     assert len(approved) == 1
     sid = approved[0]["id"]
 
-    # 5. Welcome email landed — subject is "Welcome to wswdy, Ian"
+    # 5. Welcome email landed — subject is "Welcome to WTF, Ian"
     welcome = [e for e in fake_email.sent if "welcome" in e["subject"].lower()
                or "confirmed" in e["text"].lower()]
     assert welcome
@@ -102,9 +102,9 @@ async def test_full_happy_path(mock_geo, app, tmp_path):
         stagger=False, render_static_map=None,
     )
     assert out["sent"] == 1
-    # Digest subject: "DC briefing for Ian — {date}"
+    # Digest subject: "WTF for Ian — {date}"
     digests = [e for e in fake_email.sent
-               if "DC briefing" in e["subject"] or "Good morning" in e["text"]]
+               if "WTF" in e["subject"] or "Good morning" in e["text"]]
     assert digests
     digest = digests[-1]
     assert "Ian" in digest["text"]

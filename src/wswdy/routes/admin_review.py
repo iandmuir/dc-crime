@@ -74,9 +74,9 @@ async def review_approve(request: Request, token: str, background_tasks: Backgro
                        subscriber_id=sub["id"])
     unsub_url = f"{settings.base_url}/u/{sub['id']}?token={unsub_token}"
     text = (
-        f"Hi {sub['display_name']} — you're confirmed. ✓\n\n"
-        f"You'll get your first DC crime briefing the morning after MPD "
-        f"publishes their daily data, covering the area within "
+        f"Hi, {sub['display_name']} — you're confirmed. ✓\n\n"
+        f"You'll get your first WTF briefing the morning after DC's incident "
+        f"data publishes, covering crimes and crashes within "
         f"{sub['radius_m']:,}m of your home.\n\n"
         f"Reply STOP to unsubscribe."
     )
@@ -85,7 +85,7 @@ async def review_approve(request: Request, token: str, background_tasks: Backgro
         sub=sub,
         email_notifier=request.app.state.email_notifier,
         whatsapp_notifier=request.app.state.whatsapp_notifier,
-        subject=f"Welcome to wswdy, {sub['display_name']}",
+        subject=f"Welcome to WTF, {sub['display_name']}",
         text=text,
         unsubscribe_url=unsub_url,
     )

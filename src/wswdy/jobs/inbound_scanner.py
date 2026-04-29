@@ -172,8 +172,8 @@ async def run_inbound_scan(
             await whatsapp.send(
                 recipient=phone, subject="",
                 text=(
-                    f"Hi, {name} — you've been unsubscribed from DC crime briefings. "
-                    f"Sign up again any time at https://dccrime.iandmuir.com"
+                    f"Hi, {name} — you've been unsubscribed from WTF. "
+                    f"Sign up again any time at https://wtfdc.iandmuir.com"
                 ),
                 image_path=None,
             )
