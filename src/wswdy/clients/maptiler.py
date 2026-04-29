@@ -29,7 +29,10 @@ async def geocode_address(query: str, *, api_key: str, timeout_s: float = 10.0) 
     lon, lat = f["center"]
     if not in_dc_bbox(lat, lon):
         raise GeocodeError("address is outside DC")
-    return {"lat": float(lat), "lon": float(lon), "display": f.get("place_name", query)}
+    display = f.get("place_name", query)
+    # MapTiler labels DC addresses as "Columbia <ZIP>" — normalize to "Washington, DC".
+    display = display.replace(", Columbia ", ", Washington, DC ")
+    return {"lat": float(lat), "lon": float(lon), "display": display}
 
 
 def _zoom_for_radius_m(radius_m: int) -> int:
