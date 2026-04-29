@@ -22,7 +22,7 @@
           <div><strong>{{ s.display_name }}</strong> · {{ s.preferred_channel }} ·
             <span class="mono" style="font-size:.85rem;">{{ s.email or s.phone }}</span></div>
           <div style="font-size:.85rem; color:var(--ink-2);">{{ s.address_text }} ({{ s.radius_m }}m)</div>
-          <div class="mono" style="font-size:.74rem; color: var(--ink-3); margin-top:.2rem;">{{ s.created_at }}</div>
+          <div class="mono" style="font-size:.74rem; color: var(--ink-3); margin-top:.2rem;">{{ s.created_at | et }}</div>
         </div>
         <div class="pending-actions">
           <form method="post" action="/a/{{ s.review_token }}/approve" style="display:inline">
@@ -47,7 +47,7 @@
             <span class="mono" style="font-size:.85rem;">{{ s.email or s.phone }}</span></div>
           <div style="font-size:.85rem; color:var(--ink-2);">{{ s.address_text }} ({{ s.radius_m }}m)</div>
           <div class="mono" style="font-size:.74rem; color: var(--ink-3); margin-top:.2rem;">
-            approved {{ s.approved_at or s.created_at }}{% if s.last_sent_at %} · last sent {{ s.last_sent_at }}{% endif %}
+            approved {{ (s.approved_at or s.created_at) | et }}{% if s.last_sent_at %} · last sent {{ s.last_sent_at | et }}{% endif %}
           </div>
         </div>
         <div class="pending-actions">
@@ -78,7 +78,7 @@
             <span class="mono" style="font-size:.85rem;">{{ s.email or s.phone }}</span>
           </div>
           <div class="mono" style="font-size:.74rem; color: var(--ink-3); margin-top:.2rem;">
-            {{ s.unsubscribed_at or s.created_at }}
+            {{ (s.unsubscribed_at or s.created_at) | et }}
           </div>
         </div>
         <div class="pending-actions">
@@ -98,7 +98,7 @@
     <h2 class="card-title">MPD fetch</h2>
     {% if last_fetch %}
       <div class="summary-row"><span class="k">status</span><span class="v">{{ last_fetch.status }}</span></div>
-      <div class="summary-row"><span class="k">when</span><span class="v tnum">{{ last_fetch.fetched_at }}</span></div>
+      <div class="summary-row"><span class="k">when</span><span class="v tnum">{{ last_fetch.fetched_at | et }}</span></div>
       <div class="summary-row"><span class="k">added / updated</span><span class="v tnum">+{{ last_fetch.crimes_added or 0 }} / ~{{ last_fetch.crimes_updated or 0 }}</span></div>
       {% if last_fetch.error %}<div class="summary-row"><span class="k">error</span><span class="v">{{ last_fetch.error }}</span></div>{% endif %}
     {% else %}<p>No fetches recorded.</p>{% endif %}
@@ -122,7 +122,7 @@
     <ul style="list-style:none; padding:0;">
       {% for f in failures %}
       <li style="padding:0.4rem 0; border-bottom: 1px solid var(--border);">
-        <span class="mono" style="font-size:.78rem;">{{ f.sent_at }}</span> ·
+        <span class="mono" style="font-size:.78rem;">{{ f.sent_at | et }}</span> ·
         {{ f.subscriber_id }} ({{ f.channel }}): {{ f.error }}
       </li>
       {% endfor %}

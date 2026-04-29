@@ -30,11 +30,15 @@ from wswdy.routes import (
 )
 from wswdy.scheduler import build_scheduler
 
+from wswdy.timefmt import to_eastern
+
 PKG_DIR = Path(__file__).resolve().parent
 STATIC_DIR = PKG_DIR / "static"
 TEMPLATES_DIR = PKG_DIR / "templates"
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+# Templates use {{ value | et }} to render UTC timestamps as America/New_York.
+templates.env.filters["et"] = to_eastern
 
 
 @asynccontextmanager

@@ -17,7 +17,7 @@
       <div class="summary-row"><span class="k">address</span><span class="v">{{ sub.address_text }}</span></div>
       <div class="summary-row"><span class="k">coords</span><span class="v mono">{{ "%.4f"|format(sub.lat) }}, {{ "%.4f"|format(sub.lon) }}</span></div>
       <div class="summary-row"><span class="k">radius</span><span class="v tnum">{{ "{:,}".format(sub.radius_m) }}m</span></div>
-      <div class="summary-row"><span class="k">submitted</span><span class="v tnum">{{ sub.created_at }}</span></div>
+      <div class="summary-row"><span class="k">submitted</span><span class="v tnum">{{ sub.created_at | et }}</span></div>
     </div>
 
     {% if sub.status == "PENDING" %}
