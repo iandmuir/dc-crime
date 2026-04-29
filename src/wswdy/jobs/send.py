@@ -124,7 +124,7 @@ async def run_daily_sends(
             sub,
             email_notifier=email,
             whatsapp_notifier=whatsapp,
-            subject=f"WTF for {sub['display_name']} — {send_date}",
+            subject=f"WTFDC for {sub['display_name']} — {send_date}",
             text=text,
             image_path=image_path,
             unsubscribe_url=unsub_url,
