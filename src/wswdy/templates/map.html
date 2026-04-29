@@ -24,16 +24,39 @@
         <button data-window="30d"><span class="num" id="n-30d">—</span><span class="lbl">30d</span></button>
       </div>
     </div>
+
+    <div class="layer-toggle">
+      <label class="layer-row">
+        <input type="checkbox" id="show-crimes" checked />
+        <span class="layer-marker crime-marker"></span>
+        <span class="layer-name">Crimes</span>
+        <span class="layer-count" id="layer-crime-count">0</span>
+      </label>
+      <label class="layer-row">
+        <input type="checkbox" id="show-crashes" checked />
+        <span class="layer-marker crash-marker"></span>
+        <span class="layer-name">Crashes</span>
+        <span class="layer-count" id="layer-crash-count">0</span>
+      </label>
+    </div>
+
     <div class="legend">
-      <div class="legend-head">
-        <span class="legend-eyebrow">reports shown</span>
-        <span class="legend-total"><span id="legend-total">—</span><span class="unit">total</span></span>
-      </div>
+      <div class="legend-eyebrow">crime severity</div>
       <div class="legend-rows">
         <div class="legend-row"><span class="swatch" style="background: var(--t1);"></span><span class="lbl">Violent</span><span class="num" id="leg-1">0</span></div>
         <div class="legend-row"><span class="swatch" style="background: var(--t2);"></span><span class="lbl">Property</span><span class="num" id="leg-2">0</span></div>
         <div class="legend-row"><span class="swatch" style="background: var(--t3);"></span><span class="lbl">Vehicle</span><span class="num" id="leg-3">0</span></div>
         <div class="legend-row"><span class="swatch" style="background: var(--t4);"></span><span class="lbl">Petty</span><span class="num" id="leg-4">0</span></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-eyebrow">crash severity</div>
+      <div class="legend-rows">
+        <div class="legend-row"><span class="swatch crash-swatch t1"></span><span class="lbl">Fatal</span><span class="num" id="cleg-1">0</span></div>
+        <div class="legend-row"><span class="swatch crash-swatch t2"></span><span class="lbl">Major injury</span><span class="num" id="cleg-2">0</span></div>
+        <div class="legend-row"><span class="swatch crash-swatch t3"></span><span class="lbl">Minor injury</span><span class="num" id="cleg-3">0</span></div>
+        <div class="legend-row"><span class="swatch crash-swatch t4"></span><span class="lbl">Property only</span><span class="num" id="cleg-4">0</span></div>
       </div>
     </div>
   </aside>
@@ -47,9 +70,6 @@ const SID = "{{ sub.id }}";
 const TOKEN = "{{ token }}";
 const KEY = "{{ maptiler_key }}";
 
-// Map needs a valid initial view (center + zoom) for the tile layer to
-// kick off requests. We set a placeholder zoom and immediately re-fit
-// to the radius circle below — the user only ever sees the fitted view.
 const map = L.map('map', { center: HOME, zoom: 15 });
 L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${KEY}`, {
   attribution: '© MapTiler © OpenStreetMap · MPD DC', maxZoom: 19,
@@ -60,29 +80,31 @@ const homeIcon = L.divIcon({ className: '', html: '<div class="home-marker"></di
 L.marker(HOME, { icon: homeIcon }).addTo(map);
 const radiusCircle = L.circle(HOME, { radius: RADIUS_M, className: 'radius-circle' }).addTo(map);
 
-// Fit the radius circle into view with some breathing room. This adapts
-// the zoom to whatever radius the subscriber chose — 200m gets close in,
-// 2000m zooms back out so the whole watch area is visible.
 map.fitBounds(radiusCircle.getBounds(), { padding: [40, 40], animate: false });
 
-const layer = L.layerGroup().addTo(map);
+// Two layer groups so we can toggle each independently and never race
+// crash data into the crime layer or vice versa.
+const crimeLayer = L.layerGroup().addTo(map);
+const crashLayer = L.layerGroup().addTo(map);
 
-// Cache responses by window so toggle switches are instant and we never
-// race three fetches into the same layer (the previous bug: whichever
-// finished last won, which was usually 30d under the active 24h toggle).
-const windowData = {};
+const crimeData = {};   // window -> FeatureCollection
+const crashData = {};
 let activeWindow = '24h';
 
-async function fetchWindow(window) {
-  const r = await fetch(
-    `/api/crimes?subscriber=${SID}&token=${encodeURIComponent(TOKEN)}&window=${window}`
-  );
+async function fetchJson(path) {
+  const r = await fetch(path);
   if (!r.ok) return null;
   return await r.json();
 }
 
-function renderMarkers(fc) {
-  layer.clearLayers();
+function fmtDate(iso) {
+  if (!iso) return '';
+  // Drop fractional seconds + tz suffix, replace T with space.
+  return iso.replace('T', ' ').replace(/[+Z].*$/, '');
+}
+
+function renderCrimes(fc) {
+  crimeLayer.clearLayers();
   const counts = [0,0,0,0];
   fc.features.forEach(f => {
     const t = f.properties.tier;
@@ -93,36 +115,98 @@ function renderMarkers(fc) {
       iconSize: [18,18], iconAnchor: [9,9],
     });
     L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]], { icon })
-      .addTo(layer)
+      .addTo(crimeLayer)
       .bindPopup(`<div class="pop-title">${f.properties.offense}</div>
                   <div class="pop-row"><span class="k">where</span><span class="v">${f.properties.block || ''}</span></div>
-                  <div class="pop-row"><span class="k">when</span><span class="v">${f.properties.report_dt}</span></div>`);
+                  <div class="pop-row"><span class="k">when</span><span class="v">${fmtDate(f.properties.report_dt)}</span></div>`);
   });
-  document.getElementById('legend-total').textContent = fc.features.length;
-  for (let i=1; i<=4; i++) {
-    document.getElementById('leg-'+i).textContent = counts[i-1];
-  }
+  for (let i=1; i<=4; i++) document.getElementById('leg-'+i).textContent = counts[i-1];
+  document.getElementById('layer-crime-count').textContent = fc.features.length;
 }
 
-async function loadAndCache(window) {
-  const fc = await fetchWindow(window);
+function describeCrash(p) {
+  if (p.fatal > 0) return 'Fatal crash';
+  if (p.ped_struck) return 'Pedestrian struck';
+  if (p.bike_struck) return 'Cyclist struck';
+  if (p.major_injury > 0) return 'Crash with major injury';
+  if (p.minor_injury > 0) return 'Crash with minor injury';
+  return 'Crash (property damage)';
+}
+
+function renderCrashes(fc) {
+  crashLayer.clearLayers();
+  const counts = [0,0,0,0];
+  fc.features.forEach(f => {
+    const t = f.properties.tier;
+    counts[t-1]++;
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="crash-icon t${t}"></div>`,
+      iconSize: [16,16], iconAnchor: [8,8],
+    });
+    const p = f.properties;
+    L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]], { icon })
+      .addTo(crashLayer)
+      .bindPopup(`<div class="pop-title">${describeCrash(p)}</div>
+                  <div class="pop-row"><span class="k">where</span><span class="v">${p.address || ''}</span></div>
+                  <div class="pop-row"><span class="k">when</span><span class="v">${fmtDate(p.report_dt)}</span></div>`);
+  });
+  for (let i=1; i<=4; i++) document.getElementById('cleg-'+i).textContent = counts[i-1];
+  document.getElementById('layer-crash-count').textContent = fc.features.length;
+}
+
+async function loadCrimes(window) {
+  const fc = await fetchJson(`/api/crimes?subscriber=${SID}&token=${encodeURIComponent(TOKEN)}&window=${window}`);
   if (!fc) return null;
-  windowData[window] = fc;
-  document.getElementById('n-' + window).textContent = fc.features.length;
+  crimeData[window] = fc;
   return fc;
 }
 
+async function loadCrashes(window) {
+  const fc = await fetchJson(`/api/crashes?subscriber=${SID}&token=${encodeURIComponent(TOKEN)}&window=${window}`);
+  if (!fc) return null;
+  crashData[window] = fc;
+  return fc;
+}
+
+function renderActive() {
+  const crimes = crimeData[activeWindow];
+  const crashes = crashData[activeWindow];
+  if (crimes) renderCrimes(crimes);
+  if (crashes) renderCrashes(crashes);
+
+  // Toggle counts: show combined count for that window button.
+  ['24h', '7d', '30d'].forEach(w => {
+    const c = (crimeData[w]?.features.length ?? 0) + (crashData[w]?.features.length ?? 0);
+    if (crimeData[w] || crashData[w]) document.getElementById('n-' + w).textContent = c;
+  });
+
+  applyLayerVisibility();
+}
+
+function applyLayerVisibility() {
+  const showCrimes = document.getElementById('show-crimes').checked;
+  const showCrashes = document.getElementById('show-crashes').checked;
+  if (showCrimes) map.addLayer(crimeLayer); else map.removeLayer(crimeLayer);
+  if (showCrashes) map.addLayer(crashLayer); else map.removeLayer(crashLayer);
+}
+
+async function ensureWindow(window) {
+  const tasks = [];
+  if (!crimeData[window]) tasks.push(loadCrimes(window));
+  if (!crashData[window]) tasks.push(loadCrashes(window));
+  if (tasks.length) await Promise.all(tasks);
+}
+
 async function init() {
-  // Kick off all three so the toggle counts populate. Render markers
-  // only for the active window — once it's available, regardless of
-  // which other fetches are still in flight or already done.
-  const promises = ['24h', '7d', '30d'].map(loadAndCache);
-  // As soon as the active window's response lands, paint the map.
-  const activePromise = promises[['24h', '7d', '30d'].indexOf(activeWindow)];
-  const activeFc = await activePromise;
-  if (activeFc) renderMarkers(activeFc);
-  // Let the rest finish in the background for their counts.
-  await Promise.all(promises);
+  // Active window first so the map paints quickly.
+  await ensureWindow(activeWindow);
+  renderActive();
+  // Then the other two windows in the background for their counts.
+  for (const w of ['24h', '7d', '30d']) {
+    if (w !== activeWindow) await ensureWindow(w);
+  }
+  renderActive();
 }
 
 document.querySelectorAll('#toggle button').forEach(b => {
@@ -130,10 +214,13 @@ document.querySelectorAll('#toggle button').forEach(b => {
     document.querySelectorAll('#toggle button').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     activeWindow = b.dataset.window;
-    const fc = windowData[activeWindow] || await loadAndCache(activeWindow);
-    if (fc) renderMarkers(fc);
+    await ensureWindow(activeWindow);
+    renderActive();
   });
 });
+
+document.getElementById('show-crimes').addEventListener('change', applyLayerVisibility);
+document.getElementById('show-crashes').addEventListener('change', applyLayerVisibility);
 
 init();
 </script>

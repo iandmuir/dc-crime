@@ -750,6 +750,81 @@ body {
 .marker.t3 { background: var(--t3); }
 .marker.t4 { background: var(--t4); }
 
+/* Crash markers — square with a stem so they read as "incident on a road"
+   and are visually distinct from the round crime dots. Same severity
+   palette but different shape for at-a-glance differentiation. */
+.crash-icon {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transform: rotate(45deg);
+  border-radius: 2px;
+}
+.crash-icon.t1 { background: #0a0a0a; }              /* fatal — black */
+.crash-icon.t2 { background: var(--t1); }             /* major — red */
+.crash-icon.t3 { background: var(--t2); }             /* minor — orange */
+.crash-icon.t4 { background: var(--surface-3); border-color: var(--ink-4); }  /* property — neutral */
+
+/* Layer toggle (crimes / crashes checkboxes in the sidebar) */
+.layer-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+.layer-row input[type=checkbox] {
+  accent-color: var(--ink);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.layer-marker {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.layer-marker.crime-marker {
+  border-radius: 50%;
+  background: var(--t1);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border-2);
+}
+.layer-marker.crash-marker {
+  background: #0a0a0a;
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border-2);
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+.layer-name { flex: 1; color: var(--ink); }
+.layer-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+/* Crash legend swatches use the same diamond shape as the markers */
+.crash-swatch {
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+.crash-swatch.t1 { background: #0a0a0a; }
+.crash-swatch.t2 { background: var(--t1); }
+.crash-swatch.t3 { background: var(--t2); }
+.crash-swatch.t4 { background: var(--surface-3); border: 1px solid var(--ink-4); }
+
 /* Leaflet popup styling */
 .pop-title {
   font-family: var(--font-display);
