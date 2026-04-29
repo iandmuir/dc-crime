@@ -41,9 +41,10 @@ async def test_render_static_map_includes_home_pin_and_tier_markers(tmp_path):
     )
     url = captured["url"]
     # Home pin uses the dark accent colour and is the first marker.
-    assert "color%3A%230A0A0A" in url or "color:#0A0A0A" in url
+    # Geoapify only accepts lowercase hex, so values are intentionally lowercase.
+    assert "color:%230a0a0a" in url or "color:#0a0a0a" in url
     # Tier 1 marker (violent — red) is included.
-    assert "color%3A%23DC2626" in url or "color:#DC2626" in url
+    assert "color:%23dc2626" in url or "color:#dc2626" in url
     # Center coordinates land in the URL.
     assert "38.9097" in url and "-77.0319" in url
 
