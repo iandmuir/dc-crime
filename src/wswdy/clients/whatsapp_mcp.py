@@ -55,7 +55,12 @@ async def send_message(
         McpUnreachable: on network errors or 5xx responses.
     """
     url = base_url.rstrip("/") + "/api/send"
-    payload: dict[str, str] = {"recipient": to, "message": text}
+    # WhatsApp JIDs are digits-only (no leading "+"). The bridge takes the
+    # recipient string verbatim as the JID User part, so we strip "+" here
+    # rather than relying on whatever the form/admin captured. JID-formatted
+    # recipients (containing "@") are passed through untouched.
+    recipient = to if "@" in to else to.lstrip("+").replace(" ", "").replace("-", "")
+    payload: dict[str, str] = {"recipient": recipient, "message": text}
     if image_path is not None:
         payload["media_path"] = str(Path(image_path).resolve())
 
