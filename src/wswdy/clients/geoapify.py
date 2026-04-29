@@ -27,7 +27,9 @@ STATIC_URL = "https://maps.geoapify.com/v1/staticmap"
 
 # Tier hex codes — kept in sync with the CSS variables in static/shared.css
 # (--t1 violent, --t2 serious property, --t3 vehicle, --t4 petty).
-_TIER_HEX = {1: "DC2626", 2: "EA580C", 3: "D97706", 4: "65A30D"}
+# Lowercase ONLY: Geoapify rejects uppercase hex with
+#   "marker[0][1] does not match any of the allowed types"
+_TIER_HEX = {1: "dc2626", 2: "ea580c", 3: "d97706", 4: "65a30d"}
 
 
 def _zoom_for_radius_m(radius_m: int) -> int:
@@ -71,7 +73,7 @@ async def render_static_map(
     # Home pin first (near-black, slightly larger so it stands out).
     params.append((
         "marker",
-        f"lonlat:{center_lon},{center_lat};color:#0A0A0A;size:medium",
+        f"lonlat:{center_lon},{center_lat};color:#0a0a0a;size:medium",
     ))
     # Crime markers — cap to 50 so the URL stays under any sane length limit.
     for lat, lon, tier in markers[:50]:
