@@ -2,37 +2,43 @@
 {% block title %}Map — wswdy{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>html, body { height: 100%; overflow: hidden; }</style>
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  .nav { flex-shrink: 0; }
+</style>
 {% endblock %}
 {% block content %}
-<aside class="panel">
-  <div class="panel-head">
-    <div class="panel-eyebrow">briefing for</div>
-    <h1 class="panel-title">{{ sub.display_name }} <span class="accent">·</span> {{ sub.address_text }}</h1>
-    <div class="panel-meta"><strong class="tnum">{{ "{:,}".format(sub.radius_m) }}m</strong> around your home</div>
-  </div>
-  <div class="window">
-    <div class="window-label">window</div>
-    <div class="toggle" id="toggle">
-      <button class="active" data-window="24h"><span class="num" id="n-24h">—</span><span class="lbl">24h</span></button>
-      <button data-window="7d"><span class="num" id="n-7d">—</span><span class="lbl">7d</span></button>
-      <button data-window="30d"><span class="num" id="n-30d">—</span><span class="lbl">30d</span></button>
+<div class="map-layout">
+  <aside class="panel">
+    <div class="panel-head">
+      <div class="panel-eyebrow">briefing for</div>
+      <h1 class="panel-title">{{ sub.display_name }} <span class="accent">·</span> {{ sub.address_text }}</h1>
+      <div class="panel-meta"><strong class="tnum">{{ "{:,}".format(sub.radius_m) }}m</strong> around your home</div>
     </div>
-  </div>
-  <div class="legend">
-    <div class="legend-head">
-      <span class="legend-eyebrow">reports shown</span>
-      <span class="legend-total"><span id="legend-total">—</span><span class="unit">total</span></span>
+    <div class="window">
+      <div class="window-label">window</div>
+      <div class="toggle" id="toggle">
+        <button class="active" data-window="24h"><span class="num" id="n-24h">—</span><span class="lbl">24h</span></button>
+        <button data-window="7d"><span class="num" id="n-7d">—</span><span class="lbl">7d</span></button>
+        <button data-window="30d"><span class="num" id="n-30d">—</span><span class="lbl">30d</span></button>
+      </div>
     </div>
-    <div class="legend-rows">
-      <div class="legend-row"><span class="swatch" style="background: var(--t1);"></span><span class="lbl">Violent</span><span class="num" id="leg-1">0</span></div>
-      <div class="legend-row"><span class="swatch" style="background: var(--t2);"></span><span class="lbl">Property</span><span class="num" id="leg-2">0</span></div>
-      <div class="legend-row"><span class="swatch" style="background: var(--t3);"></span><span class="lbl">Vehicle</span><span class="num" id="leg-3">0</span></div>
-      <div class="legend-row"><span class="swatch" style="background: var(--t4);"></span><span class="lbl">Petty</span><span class="num" id="leg-4">0</span></div>
+    <div class="legend">
+      <div class="legend-head">
+        <span class="legend-eyebrow">reports shown</span>
+        <span class="legend-total"><span id="legend-total">—</span><span class="unit">total</span></span>
+      </div>
+      <div class="legend-rows">
+        <div class="legend-row"><span class="swatch" style="background: var(--t1);"></span><span class="lbl">Violent</span><span class="num" id="leg-1">0</span></div>
+        <div class="legend-row"><span class="swatch" style="background: var(--t2);"></span><span class="lbl">Property</span><span class="num" id="leg-2">0</span></div>
+        <div class="legend-row"><span class="swatch" style="background: var(--t3);"></span><span class="lbl">Vehicle</span><span class="num" id="leg-3">0</span></div>
+        <div class="legend-row"><span class="swatch" style="background: var(--t4);"></span><span class="lbl">Petty</span><span class="num" id="leg-4">0</span></div>
+      </div>
     </div>
-  </div>
-</aside>
-<div id="map"></div>
+  </aside>
+  <div id="map"></div>
+</div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const HOME = [{{ sub.lat }}, {{ sub.lon }}];

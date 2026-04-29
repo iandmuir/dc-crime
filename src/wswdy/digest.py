@@ -74,7 +74,7 @@ def build_digest_text(
     radius_str = f"{radius_m:,}m"
 
     lines: list[str] = []
-    lines.append(f"Good morning {display_name} ☀️")
+    lines.append(f"Good morning, {display_name} ☀️")
     lines.append("")
     if n == 0:
         lines.append(
@@ -110,11 +110,9 @@ def build_digest_text(
         lines.append("No incidents reported in your immediate vicinity. ✨")
 
     lines.append("")
-    lines.append("📍 View map (last 24h, with toggles for 7d / 30d):")
-    lines.append(map_url)
+    lines.append(f"🗺️ Map: {map_url}")
     lines.append("")
-    lines.append("Reply STOP or click to unsubscribe:")
-    lines.append(unsubscribe_url)
+    lines.append("Reply STOP to unsubscribe.")
 
     if mpd_warning:
         lines.append("")
