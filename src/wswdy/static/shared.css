@@ -297,7 +297,8 @@ body {
 /* ----- segmented control (channel toggle) ----- */
 .seg {
   position: relative;
-  display: inline-flex;
+  display: flex;
+  width: 240px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -306,11 +307,13 @@ body {
 }
 .seg input[type=radio] { position: absolute; opacity: 0; width: 0; height: 0; }
 .seg label {
+  flex: 1;
   position: relative;
   z-index: 1;
-  padding: 0.45rem 1rem;
+  padding: 0.45rem 0.75rem;
   font-size: 0.875rem;
   font-weight: 500;
+  text-align: center;
   cursor: pointer;
   border-radius: calc(var(--r-md) - 2px);
   color: var(--ink-3);
@@ -327,9 +330,9 @@ body {
   border-radius: calc(var(--r-md) - 2px);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
-  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: left 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.seg.is-whatsapp .seg-thumb { transform: translateX(100%); }
+.seg.is-whatsapp .seg-thumb { left: 50%; }
 
 /* ----- radius slider ----- */
 .radius-row {
@@ -446,39 +449,21 @@ body {
 .preview-legend-item .lbl { flex: 1; }
 .preview-legend-item .num { font-variant-numeric: tabular-nums; font-weight: 500; }
 
-/* ----- autocomplete ----- */
-.ac-wrap { position: relative; }
-.ac-list {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0; right: 0;
-  background: var(--surface);
-  border: 1px solid var(--border-2);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-md);
-  list-style: none;
-  margin: 0; padding: 4px;
-  z-index: 50;
-  max-height: 240px;
-  overflow-y: auto;
-}
-.ac-list li {
+/* ----- address status ----- */
+.addr-status {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.75rem;
-  cursor: pointer;
-  border-radius: calc(var(--r-md) - 2px);
-  font-size: 0.9rem;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  margin-top: 0.5rem;
+  min-height: 1.1rem;
+  font-family: var(--font-mono);
+  letter-spacing: -0.005em;
 }
-.ac-list li:hover { background: var(--surface-2); }
-.pin {
-  width: 8px; height: 8px;
-  background: var(--ink-4);
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  flex-shrink: 0;
-}
+.addr-status.is-ok { color: #15803D; }
+.addr-status.is-loading { color: var(--ink-4); }
+.addr-status.is-error { color: var(--t1); }
+.addr-status .check { font-weight: 700; }
 
 /* ----- submit area ----- */
 .submit-area { margin-top: 0.5rem; }

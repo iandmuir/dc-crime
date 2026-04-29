@@ -25,13 +25,14 @@
              placeholder="Jane" autocomplete="given-name" required />
     </div>
 
-    <div class="field ac-wrap">
+    <div class="field">
       <label class="field-label" for="addr">Home address</label>
       <input id="addr" name="address_text" class="field-input" type="text"
+             placeholder="1500 Pennsylvania Ave NW"
              autocomplete="off" required />
       <input type="hidden" name="lat" id="lat" />
       <input type="hidden" name="lon" id="lon" />
-      <ul class="ac-list" id="ac-list" hidden></ul>
+      <div id="addr-status" class="addr-status"></div>
     </div>
 
     <div class="field">
@@ -150,34 +151,43 @@
   r.addEventListener('input', updateSlider);
   updateSlider();
 
-  // Address autocomplete
+  // Address auto-resolution with live feedback
   const addrInput = document.getElementById('addr');
-  const acList = document.getElementById('ac-list');
+  const addrStatus = document.getElementById('addr-status');
   const latInput = document.getElementById('lat');
   const lonInput = document.getElementById('lon');
-  let acTimer;
+  let addrTimer;
+
+  function setStatus(state, msg) {
+    addrStatus.className = 'addr-status' + (state ? ' is-' + state : '');
+    addrStatus.innerHTML = msg || '';
+  }
+
   addrInput.addEventListener('input', () => {
-    clearTimeout(acTimer);
-    acTimer = setTimeout(async () => {
-      const q = addrInput.value.trim();
-      if (q.length < 3) { acList.hidden = true; return; }
-      const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
-      if (!r.ok) return;
-      const data = await r.json();
-      acList.innerHTML = data.results.map(item =>
-        `<li data-lat="${item.lat}" data-lon="${item.lon}"><span class="pin"></span>
-         <span class="ac-main"><strong>${item.display}</strong></span></li>`).join('');
-      acList.hidden = data.results.length === 0;
-      acList.querySelectorAll('li').forEach(li => {
-        li.addEventListener('click', () => {
-          addrInput.value = li.querySelector('strong').textContent;
-          latInput.value = li.dataset.lat;
-          lonInput.value = li.dataset.lon;
-          acList.hidden = true;
-          schedulePreview();
-        });
-      });
-    }, 300);
+    clearTimeout(addrTimer);
+    latInput.value = '';
+    lonInput.value = '';
+    const q = addrInput.value.trim();
+    if (q.length < 4) { setStatus(null, ''); return; }
+    setStatus('loading', 'Looking up address…');
+    addrTimer = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+        if (!r.ok) { setStatus('error', 'Lookup failed — try again.'); return; }
+        const data = await r.json();
+        if (!data.results || data.results.length === 0) {
+          setStatus('error', 'Not found in DC. Check spelling and try again.');
+          return;
+        }
+        const hit = data.results[0];
+        latInput.value = hit.lat;
+        lonInput.value = hit.lon;
+        setStatus('ok', `<span class="check">✓</span> ${hit.display}`);
+        schedulePreview();
+      } catch (e) {
+        setStatus('error', 'Lookup failed — try again.');
+      }
+    }, 400);
   });
 
   // Live preview
