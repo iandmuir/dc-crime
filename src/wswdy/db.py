@@ -87,6 +87,30 @@ CREATE TABLE IF NOT EXISTS crashes (
 CREATE INDEX IF NOT EXISTS crashes_report_dt_idx ON crashes(report_dt);
 CREATE INDEX IF NOT EXISTS crashes_geo_idx ON crashes(lat, lon);
 
+-- One row per party (driver / passenger / pedestrian / cyclist) involved in
+-- a crash. Multiple rows can share a crimeid (the crash) and a vehicle_id
+-- (driver + their passengers). Sourced from layer 25 of the same DC public
+-- safety feed; the parties layer has 800k+ historical rows but we only
+-- ingest those tied to crashes already in our 30-day crashes window.
+CREATE TABLE IF NOT EXISTS crash_parties (
+  id              TEXT PRIMARY KEY,         -- PERSONID
+  crimeid         TEXT NOT NULL,            -- joins to crashes.id
+  ccn             TEXT,
+  person_type     TEXT,                     -- 'Driver','Passenger','Pedestrian','Bicyclist','Other'
+  age             INTEGER NOT NULL DEFAULT 0,  -- 0 = unknown
+  fatal           INTEGER NOT NULL DEFAULT 0,
+  major_injury    INTEGER NOT NULL DEFAULT 0,
+  minor_injury    INTEGER NOT NULL DEFAULT 0,
+  vehicle_id      TEXT,
+  vehicle_type    TEXT,                     -- raw string from feed; humanized at display time
+  license_state   TEXT,                     -- 'DC','VA','MD','USG','Diplomatic',...
+  ticket_issued   INTEGER NOT NULL DEFAULT 0,
+  impaired        INTEGER NOT NULL DEFAULT 0,
+  speeding        INTEGER NOT NULL DEFAULT 0,
+  fetched_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS crash_parties_crimeid_idx ON crash_parties(crimeid);
+
 CREATE TABLE IF NOT EXISTS admin_alerts (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   alert_type     TEXT NOT NULL,
