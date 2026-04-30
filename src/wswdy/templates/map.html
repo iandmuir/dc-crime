@@ -196,6 +196,35 @@ function escapeHtml(s) {
   }[c]));
 }
 
+const PARTY_GLYPH = {
+  Driver: '🚗', Passenger: '👤', Pedestrian: '🚶', Bicyclist: '🚲', Other: '·',
+};
+
+function partyLine(party) {
+  // "🚗 driver, 32, MD plates · SUV · ⚠ speeding · 🩹 minor"
+  const glyph = PARTY_GLYPH[party.person_type] || '·';
+  const role = (party.person_type || '').toLowerCase();
+  const bits = [`${glyph} ${escapeHtml(role)}`];
+
+  // Inline modifiers for vehicle, age, plate state when known
+  const meta = [];
+  if (party.age) meta.push(escapeHtml(String(party.age)));
+  if (party.license_state) meta.push(`${escapeHtml(party.license_state)} plates`);
+  if (party.vehicle_type) meta.push(escapeHtml(party.vehicle_type));
+  if (meta.length) bits[0] += ', ' + meta.join(', ');
+
+  const flags = [];
+  if (party.impaired) flags.push('⚠ impaired');
+  if (party.speeding) flags.push('⚠ speeding');
+  if (party.ticket_issued) flags.push('🎫 ticketed');
+  if (party.fatal) flags.push('💀 killed');
+  else if (party.major_injury) flags.push('🩹 major');
+  else if (party.minor_injury) flags.push('🩹 minor');
+  if (flags.length) bits.push(flags.join(' · '));
+
+  return bits.join(' · ');
+}
+
 function crashPopupHtml(p) {
   const rows = [
     `<div class="pop-title">${escapeHtml(describeCrash(p))}</div>`,
@@ -208,6 +237,17 @@ function crashPopupHtml(p) {
   if (inj) rows.push(`<div class="pop-row"><span class="k">injured</span><span class="v">${inj}</span></div>`);
   const factors = factorsLine(p.factors);
   if (factors) rows.push(`<div class="pop-row"><span class="k">factors</span><span class="v">${factors}</span></div>`);
+
+  if (Array.isArray(p.parties) && p.parties.length) {
+    const partyHtml = p.parties.map(party =>
+      `<div class="pop-party">${partyLine(party)}</div>`
+    ).join('');
+    rows.push(
+      `<div class="pop-row pop-parties"><span class="k">parties</span>` +
+      `<span class="v">${partyHtml}</span></div>`
+    );
+  }
+
   return rows.join('');
 }
 

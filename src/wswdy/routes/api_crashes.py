@@ -16,7 +16,13 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
+from wswdy.clients.dc_crash_details import (
+    humanize_plate_state,
+    humanize_vehicle,
+    party_is_interesting,
+)
 from wswdy.repos import subscribers as subs_repo
+from wswdy.repos.crash_parties import list_by_crimeids
 from wswdy.repos.crashes import list_in_radius_window
 from wswdy.tiers import classify_crash
 from wswdy.tokens import TokenError, verify
@@ -95,6 +101,25 @@ def _expand_props(row: dict) -> dict:
     return {"involved": involved, "injuries": injuries, "factors": factors}
 
 
+def _party_for_popup(party: dict) -> dict:
+    """Shape a stored party row into the trimmed dict the popup template
+    actually needs. Vehicle and plate state are humanized here; junk values
+    end up as None and the JS hides those fields."""
+    age = party.get("age") or 0
+    return {
+        "person_type": party.get("person_type"),
+        "age": age if age > 0 else None,
+        "vehicle_type": humanize_vehicle(party.get("vehicle_type")),
+        "license_state": humanize_plate_state(party.get("license_state")),
+        "fatal": bool(party.get("fatal")),
+        "major_injury": bool(party.get("major_injury")),
+        "minor_injury": bool(party.get("minor_injury")),
+        "impaired": bool(party.get("impaired")),
+        "speeding": bool(party.get("speeding")),
+        "ticket_issued": bool(party.get("ticket_issued")),
+    }
+
+
 @router.get("/api/crashes")
 async def api_crashes(request: Request, subscriber: str, token: str, window: str = "7d"):
     secret = request.app.state.settings.hmac_secret
@@ -119,23 +144,35 @@ async def api_crashes(request: Request, subscriber: str, token: str, window: str
         request.app.state.db, sub["lat"], sub["lon"], sub["radius_m"],
         start=start, end=end,
     )
-    features = [{
-        "type": "Feature",
-        "geometry": {"type": "Point", "coordinates": [r["lon"], r["lat"]]},
-        "properties": {
-            "id": r["id"],
-            "address": r["address"],
-            "report_dt": r["report_dt"],
-            "tier": classify_crash(r),
-            # Aggregate counts (kept for backward compat / quick checks)
-            "fatal": r["fatal"],
-            "major_injury": r["major_injury"],
-            "minor_injury": r["minor_injury"],
-            "ped_struck": ((r["ped_fatal"] or 0) + (r["ped_major"] or 0)) > 0,
-            "bike_struck": ((r["bike_fatal"] or 0) + (r["bike_major"] or 0)) > 0,
-            "vehicles": r["total_vehicles"],
-            # Rich breakdown (parsed from raw_json) for the popup
-            **_expand_props(r),
-        },
-    } for r in rows]
+
+    # Single grouped query for parties of all visible crashes — avoids N+1.
+    parties_by_crash = list_by_crimeids(
+        request.app.state.db, [r["id"] for r in rows],
+    )
+
+    features = []
+    for r in rows:
+        crash_parties = parties_by_crash.get(r["id"], [])
+        # Only surface parties worth showing (drivers + vulnerable users +
+        # anyone injured / impaired / speeding). Keeps the popup tight.
+        visible = [_party_for_popup(p) for p in crash_parties
+                   if party_is_interesting(p)]
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [r["lon"], r["lat"]]},
+            "properties": {
+                "id": r["id"],
+                "address": r["address"],
+                "report_dt": r["report_dt"],
+                "tier": classify_crash(r),
+                "fatal": r["fatal"],
+                "major_injury": r["major_injury"],
+                "minor_injury": r["minor_injury"],
+                "ped_struck": ((r["ped_fatal"] or 0) + (r["ped_major"] or 0)) > 0,
+                "bike_struck": ((r["bike_fatal"] or 0) + (r["bike_major"] or 0)) > 0,
+                "vehicles": r["total_vehicles"],
+                **_expand_props(r),
+                "parties": visible,
+            },
+        })
     return JSONResponse({"type": "FeatureCollection", "features": features})

@@ -871,6 +871,17 @@ body {
 }
 .pop-row .v { flex: 1; color: var(--ink); }
 
+/* Stack each party on its own line within the "parties" pop-row */
+.pop-parties .v { display: flex; flex-direction: column; gap: 0.25rem; }
+.pop-party {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--ink);
+  padding: 0.18rem 0.4rem;
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+}
+
 /* The radius circle drawn around home */
 .leaflet-interactive.radius-circle {
   fill: var(--ink);
