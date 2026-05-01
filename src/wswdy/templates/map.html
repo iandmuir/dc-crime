@@ -75,6 +75,38 @@ L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${KEY}
   attribution: '© MapTiler © OpenStreetMap · MPD DC', maxZoom: 19,
 }).addTo(map);
 
+// Simplified DC boundary (lat, lon order for Leaflet). Approximate — a few
+// points off from the rivers' true high-water mark, but fine as a visual
+// mask that tells the eye "here's DC; ignore the dimmed areas". Not used
+// for any spatial query — see wswdy.geo for the bbox prefilter.
+const DC_BOUNDARY_LATLON = [
+  [38.99553, -77.04113],  // N corner (boundary stone NW9)
+  [38.89292, -76.90943],  // E corner (Cheverly side)
+  [38.84830, -76.94850],  // SE along the Anacostia
+  [38.79038, -77.03150],  // S point near Joint Base Anacostia-Bolling
+  [38.79150, -77.04300],
+  [38.80590, -77.05210],
+  [38.82380, -77.05920],
+  [38.84830, -77.07050],
+  [38.87490, -77.09060],
+  [38.90340, -77.11200],
+  [38.92660, -77.11500],
+  [38.95380, -77.09020],
+  [38.99553, -77.04113],  // close back to N
+];
+
+// Mask everything OUTSIDE DC with a translucent grey overlay. Implementation
+// trick: a polygon's first ring is its outer border, and any subsequent
+// rings are holes. Use a giant world rectangle as the outer ring and the
+// DC boundary as a hole, so the fill covers everything except DC.
+const WORLD_RING = [[-89, -179], [-89, 179], [89, 179], [89, -179]];
+L.polygon([WORLD_RING, DC_BOUNDARY_LATLON], {
+  fillColor: '#0a0a0a',
+  fillOpacity: 0.12,
+  stroke: false,
+  interactive: false,
+}).addTo(map);
+
 const homeIcon = L.divIcon({ className: '', html: '<div class="home-marker"></div>',
   iconSize: [26, 26], iconAnchor: [13, 13] });
 L.marker(HOME, { icon: homeIcon }).addTo(map);
