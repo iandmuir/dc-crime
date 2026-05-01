@@ -3,6 +3,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from wswdy.geo import haversine_m
+from wswdy.offenses import humanize_offense
 from wswdy.tiers import classify, classify_crash
 
 ET = ZoneInfo("America/New_York")
@@ -47,10 +48,9 @@ def _fmt_time(iso: str) -> str:
 
 
 def _humanize_offense(offense: str, method: str | None) -> str:
-    base = offense.title().replace("F/Auto", "from auto").replace("/Other", "/other")
-    if offense.upper() == "ROBBERY" and (method or "").upper() in {"GUN", "KNIFE"}:
-        return "Armed robbery"
-    return base
+    """Backwards-compatible shim for callers in this module; the canonical
+    implementation lives in wswdy.offenses."""
+    return humanize_offense(offense, method)
 
 
 def _tier_examples(crimes: list[dict], tier: int) -> str:
