@@ -41,22 +41,22 @@
     </div>
 
     <div class="legend">
-      <div class="legend-eyebrow">crime severity</div>
+      <div class="legend-eyebrow">crime severity <span class="legend-hint">click to toggle</span></div>
       <div class="legend-rows">
-        <div class="legend-row"><span class="swatch" style="background: var(--t1);"></span><span class="lbl">Violent</span><span class="num" id="leg-1">0</span></div>
-        <div class="legend-row"><span class="swatch" style="background: var(--t2);"></span><span class="lbl">Property</span><span class="num" id="leg-2">0</span></div>
-        <div class="legend-row"><span class="swatch" style="background: var(--t3);"></span><span class="lbl">Vehicle</span><span class="num" id="leg-3">0</span></div>
-        <div class="legend-row"><span class="swatch" style="background: var(--t4);"></span><span class="lbl">Petty</span><span class="num" id="leg-4">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crime" data-tier="1"><span class="swatch" style="background: var(--t1);"></span><span class="lbl">Violent</span><span class="num" id="leg-1">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crime" data-tier="2"><span class="swatch" style="background: var(--t2);"></span><span class="lbl">Property</span><span class="num" id="leg-2">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crime" data-tier="3"><span class="swatch" style="background: var(--t3);"></span><span class="lbl">Vehicle</span><span class="num" id="leg-3">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crime" data-tier="4"><span class="swatch" style="background: var(--t4);"></span><span class="lbl">Petty</span><span class="num" id="leg-4">0</span></div>
       </div>
     </div>
 
     <div class="legend">
-      <div class="legend-eyebrow">crash severity</div>
+      <div class="legend-eyebrow">crash severity <span class="legend-hint">click to toggle</span></div>
       <div class="legend-rows">
-        <div class="legend-row"><span class="swatch crash-swatch t1"></span><span class="lbl">Fatal</span><span class="num" id="cleg-1">0</span></div>
-        <div class="legend-row"><span class="swatch crash-swatch t2"></span><span class="lbl">Major injury</span><span class="num" id="cleg-2">0</span></div>
-        <div class="legend-row"><span class="swatch crash-swatch t3"></span><span class="lbl">Minor injury</span><span class="num" id="cleg-3">0</span></div>
-        <div class="legend-row"><span class="swatch crash-swatch t4"></span><span class="lbl">Property only</span><span class="num" id="cleg-4">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crash" data-tier="1"><span class="swatch crash-swatch t1"></span><span class="lbl">Fatal</span><span class="num" id="cleg-1">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crash" data-tier="2"><span class="swatch crash-swatch t2"></span><span class="lbl">Major injury</span><span class="num" id="cleg-2">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crash" data-tier="3"><span class="swatch crash-swatch t3"></span><span class="lbl">Minor injury</span><span class="num" id="cleg-3">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crash" data-tier="4"><span class="swatch crash-swatch t4"></span><span class="lbl">Property only</span><span class="num" id="cleg-4">0</span></div>
       </div>
     </div>
   </aside>
@@ -130,6 +130,14 @@ const crimeData = {};   // window -> FeatureCollection
 const crashData = {};
 let activeWindow = '24h';
 
+// Per-tier visibility state. All tiers visible by default; subscribers
+// can click any legend row to hide that tier (e.g. silence the noisy
+// property-only crashes).
+const tierState = {
+  crime: { 1: true, 2: true, 3: true, 4: true },
+  crash: { 1: true, 2: true, 3: true, 4: true },
+};
+
 async function fetchJson(path) {
   const r = await fetch(path);
   if (!r.ok) return null;
@@ -172,6 +180,7 @@ function renderCrimes(fc) {
   fc.features.forEach(f => {
     const t = f.properties.tier;
     counts[t-1]++;
+    if (!tierState.crime[t]) return;  // tier hidden by user
     const icon = L.divIcon({
       className: '',
       html: `<div class="marker t${t}"></div>`,
@@ -318,6 +327,7 @@ function renderCrashes(fc) {
   fc.features.forEach(f => {
     const t = f.properties.tier;
     counts[t-1]++;
+    if (!tierState.crash[t]) return;  // tier hidden by user
     const icon = L.divIcon({
       className: '',
       html: `<div class="crash-icon t${t}"></div>`,
@@ -397,6 +407,24 @@ document.querySelectorAll('#toggle button').forEach(b => {
 
 document.getElementById('show-crimes').addEventListener('change', applyLayerVisibility);
 document.getElementById('show-crashes').addEventListener('change', applyLayerVisibility);
+
+// Per-tier toggle: clicking any legend row hides/shows just that tier.
+// Visual state (the "disabled" class on the row) is mirrored from
+// tierState so the row dims when off.
+document.querySelectorAll('.tier-toggle').forEach(row => {
+  row.addEventListener('click', () => {
+    const layer = row.dataset.layer;
+    const tier = parseInt(row.dataset.tier, 10);
+    tierState[layer][tier] = !tierState[layer][tier];
+    row.classList.toggle('disabled', !tierState[layer][tier]);
+    // Re-render only the affected layer using the cached active-window data.
+    if (layer === 'crime' && crimeData[activeWindow]) {
+      renderCrimes(crimeData[activeWindow]);
+    } else if (layer === 'crash' && crashData[activeWindow]) {
+      renderCrashes(crashData[activeWindow]);
+    }
+  });
+});
 
 init();
 </script>
