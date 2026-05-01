@@ -3,19 +3,62 @@
 The MPD feed publishes one Feature per reported incident. Coordinates are
 WGS84 (`Point`, [lon, lat]). Timestamp fields are Unix epoch *milliseconds*
 from the ArcGIS server.
+
+The ArcGIS server caps single responses at ~1000 features. With a rolling
+30-day window of ~1500 incidents, an unpaginated fetch loses the most
+recent 500 records to that cap (since the default OBJECTID ASC ordering
+serves the oldest first). We sort REPORT_DAT DESC so cap-truncation drops
+the oldest (acceptable — they're aging out anyway) and paginate via
+resultOffset until the server stops setting exceededTransferLimit.
 """
 import json
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
 
 async def fetch_recent_geojson(feed_url: str, *, timeout_s: float = 30.0) -> dict[str, Any]:
+    # Strip any existing query string so we control all params explicitly.
+    split = urlsplit(feed_url)
+    base = urlunsplit((split.scheme, split.netloc, split.path, "", ""))
+
+    base_params = {
+        "where": "1=1",
+        "outFields": "*",
+        "f": "geojson",
+        "orderByFields": "REPORT_DAT DESC",
+        "resultRecordCount": 2000,
+    }
+    all_features: list[dict[str, Any]] = []
+    seen_ccns: set[str] = set()
+    offset = 0
     async with httpx.AsyncClient(timeout=timeout_s) as client:
-        r = await client.get(feed_url)
-        r.raise_for_status()
-        return r.json()
+        while True:
+            params = {**base_params, "resultOffset": offset}
+            r = await client.get(base, params=params)
+            r.raise_for_status()
+            data = r.json()
+            features = data.get("features") or []
+            if not features:
+                break
+            for f in features:
+                ccn = (f.get("properties") or {}).get("CCN")
+                if ccn:
+                    if ccn in seen_ccns:
+                        continue
+                    seen_ccns.add(ccn)
+                all_features.append(f)
+            # The GeoJSON envelope also exposes exceededTransferLimit when
+            # there are more pages. If absent or False, we're done.
+            if not data.get("exceededTransferLimit"):
+                break
+            offset += len(features)
+            # Defensive cap so a misbehaving server can't loop forever.
+            if offset > 50_000:
+                break
+    return {"type": "FeatureCollection", "features": all_features}
 
 
 def _epoch_ms_to_iso(v: Any) -> str | None:
