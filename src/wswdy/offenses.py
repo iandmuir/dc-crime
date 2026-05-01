@@ -13,13 +13,13 @@ the raw codes.
 # notice them and want a nicer label.
 OFFENSE_LABELS: dict[str, str] = {
     "HOMICIDE": "Homicide",
-    "SEX ABUSE": "Sex abuse",
+    "SEX ABUSE": "Sex Abuse",
     "ASSAULT W/DANGEROUS WEAPON": "Assault with Dangerous Weapon",
     "ROBBERY": "Robbery",
     "BURGLARY": "Burglary",
     "ARSON": "Arson",
     "MOTOR VEHICLE THEFT": "Motor Vehicle Theft",
-    "THEFT/OTHER": "Theft (other)",
+    "THEFT/OTHER": "Theft (Other)",
     "THEFT F/AUTO": "Theft from Auto",
 }
 
@@ -27,8 +27,8 @@ OFFENSE_LABELS: dict[str, str] = {
 # (MPD's catch-all residual) intentionally returns None so the popup
 # doesn't show an uninformative "weapon: other" row.
 _METHOD_LABELS: dict[str, str] = {
-    "GUN": "gun",
-    "KNIFE": "knife",
+    "GUN": "Gun",
+    "KNIFE": "Knife",
 }
 
 _ARMED_METHODS = {"GUN", "KNIFE"}
@@ -47,7 +47,7 @@ def humanize_offense(offense: str | None, method: str | None = None) -> str:
     o = offense.strip().upper()
     m = (method or "").strip().upper()
     if o == "ROBBERY" and m in _ARMED_METHODS:
-        return "Armed robbery"
+        return "Armed Robbery"
     if o in OFFENSE_LABELS:
         return OFFENSE_LABELS[o]
     # Unknown offense — best-effort title case so we don't shout at the user.

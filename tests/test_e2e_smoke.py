@@ -108,7 +108,7 @@ async def test_full_happy_path(mock_geo, app, tmp_path):
     assert digests
     digest = digests[-1]
     assert "Ian" in digest["text"]
-    # ROBBERY + GUN → "Armed robbery" in digest; "armed robbery" in lowercased text
+    # ROBBERY + GUN → "Armed Robbery" in digest; "armed robbery" in lowercased text
     assert "robbery" in digest["text"].lower()
 
     # 8. Visit the map
