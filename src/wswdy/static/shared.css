@@ -725,9 +725,43 @@ body {
   height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
+  transition: opacity 0.15s;
 }
-.legend-row .lbl { flex: 1; color: var(--ink-2); }
+.legend-row .lbl { flex: 1; color: var(--ink-2); transition: color 0.15s; }
 .legend-row .num { font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* Tier-toggle rows are clickable filters. Subtle hover so it's discoverable
+   without screaming. When the row is in the "disabled" state, dim the
+   swatch + strike through the label so it reads as "currently hidden". */
+.legend-row.tier-toggle {
+  cursor: pointer;
+  user-select: none;
+  padding-left: 0.3rem;
+  padding-right: 0.3rem;
+  margin-left: -0.3rem;
+  margin-right: -0.3rem;
+  border-radius: var(--r-sm);
+  transition: background-color 0.12s;
+}
+.legend-row.tier-toggle:hover { background-color: var(--surface-2); }
+.legend-row.tier-toggle.disabled .swatch { opacity: 0.25; }
+.legend-row.tier-toggle.disabled .lbl {
+  color: var(--ink-4);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.legend-row.tier-toggle.disabled .num { color: var(--ink-4); }
+
+/* Tiny helper hint next to the legend eyebrow */
+.legend-hint {
+  font-family: var(--font-body);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.7rem;
+  color: var(--ink-4);
+  margin-left: 0.4rem;
+  font-weight: 400;
+}
 
 /* Leaflet markers (rendered as L.divIcon) */
 .home-marker {
