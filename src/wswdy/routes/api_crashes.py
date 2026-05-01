@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
+from wswdy.address import humanize_address
 from wswdy.clients.dc_crash_details import (
     humanize_plate_state,
     humanize_vehicle,
@@ -162,7 +163,7 @@ async def api_crashes(request: Request, subscriber: str, token: str, window: str
             "geometry": {"type": "Point", "coordinates": [r["lon"], r["lat"]]},
             "properties": {
                 "id": r["id"],
-                "address": r["address"],
+                "address": humanize_address(r["address"]),
                 "report_dt": r["report_dt"],
                 "tier": classify_crash(r),
                 "fatal": r["fatal"],
