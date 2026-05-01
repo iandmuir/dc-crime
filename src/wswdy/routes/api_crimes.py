@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
+from wswdy.address import humanize_address
 from wswdy.offenses import humanize_method, humanize_offense
 from wswdy.repos import subscribers as subs_repo
 from wswdy.repos.crimes import list_in_radius_window
@@ -50,7 +51,7 @@ async def api_crimes(request: Request, subscriber: str, token: str, window: str 
             # weapon row only renders when method is GUN or KNIFE; OTHERS
             # and null both come back here as None.
             "weapon": humanize_method(r["method"]),
-            "block": r["block_address"],
+            "block": humanize_address(r["block_address"]),
             "report_dt": r["report_dt"],
             "tier": classify(r["offense"], r["method"]),
         },

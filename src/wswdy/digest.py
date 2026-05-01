@@ -2,6 +2,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from wswdy.address import humanize_address
 from wswdy.geo import haversine_m
 from wswdy.offenses import humanize_offense
 from wswdy.tiers import classify, classify_crash
@@ -166,7 +167,10 @@ def build_digest_text(
         for c in closest:
             offense = _humanize_offense(c["offense"], c.get("method"))
             t = _fmt_time(c["report_dt"])
-            lines.append(f"• {offense} — {c['distance_m']}m away ({c['block_address']}, {t})")
+            lines.append(
+                f"• {offense} — {c['distance_m']}m away "
+                f"({humanize_address(c['block_address'])}, {t})"
+            )
     else:
         lines.append("No incidents reported in your immediate vicinity. ✨")
 
