@@ -25,11 +25,25 @@ async def admin_dashboard(request: Request, token: str = ""):
 
     settings = request.app.state.settings
     db = request.app.state.db
+
+    def _with_map_token(sub: dict) -> dict:
+        """Add a signed map token so admins can preview each subscriber's
+        view of their own neighborhood map."""
+        return {
+            **dict(sub),
+            "map_token": sign(
+                settings.hmac_secret,
+                purpose="map",
+                subscriber_id=sub["id"],
+            ),
+        }
+
     pending = list_by_status(db, "PENDING")
-    # Generate per-subscriber review tokens so the admin can approve inline.
+    # Pending subscribers get an additional review token for the inline
+    # Approve / Reject buttons.
     pending_with_tokens = [
         {
-            **dict(s),
+            **_with_map_token(s),
             "review_token": sign(
                 settings.hmac_secret,
                 purpose="approve",
@@ -43,9 +57,9 @@ async def admin_dashboard(request: Request, token: str = ""):
     from wswdy.main import templates
     return templates.TemplateResponse(request, "admin.html", {
         "pending": pending_with_tokens,
-        "approved": list_by_status(db, "APPROVED"),
-        "rejected": list_by_status(db, "REJECTED"),
-        "unsubscribed": list_by_status(db, "UNSUBSCRIBED"),
+        "approved": [_with_map_token(s) for s in list_by_status(db, "APPROVED")],
+        "rejected": [_with_map_token(s) for s in list_by_status(db, "REJECTED")],
+        "unsubscribed": [_with_map_token(s) for s in list_by_status(db, "UNSUBSCRIBED")],
         "last_fetch": last_attempt(db),
         "send_volume": send_volume_last_n_days(db, n=7, today=str(date.today())),
         "failures": recent_failures(db, limit=20),
