@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
+from wswdy.offenses import humanize_method, humanize_offense
 from wswdy.repos import subscribers as subs_repo
 from wswdy.repos.crimes import list_in_radius_window
 from wswdy.tiers import classify
@@ -41,8 +42,16 @@ async def api_crimes(request: Request, subscriber: str, token: str, window: str 
         "type": "Feature",
         "geometry": {"type": "Point", "coordinates": [r["lon"], r["lat"]]},
         "properties": {
-            "ccn": r["ccn"], "offense": r["offense"], "method": r["method"],
-            "block": r["block_address"], "report_dt": r["report_dt"],
+            "ccn": r["ccn"],
+            # Humanize MPD's UPPERCASE codes for display. Tier classification
+            # still happens off the raw code (see classify) so behavior is
+            # unaffected.
+            "offense": humanize_offense(r["offense"], r["method"]),
+            # weapon row only renders when method is GUN or KNIFE; OTHERS
+            # and null both come back here as None.
+            "weapon": humanize_method(r["method"]),
+            "block": r["block_address"],
+            "report_dt": r["report_dt"],
             "tier": classify(r["offense"], r["method"]),
         },
     } for r in rows]
