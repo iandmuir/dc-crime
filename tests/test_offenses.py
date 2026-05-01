@@ -7,12 +7,12 @@ from wswdy.offenses import humanize_method, humanize_offense
 @pytest.mark.parametrize("offense,method,expected", [
     ("HOMICIDE", None, "Homicide"),
     ("HOMICIDE", "GUN", "Homicide"),  # gun specified separately via humanize_method
-    ("SEX ABUSE", None, "Sex abuse"),
+    ("SEX ABUSE", None, "Sex Abuse"),
     ("ASSAULT W/DANGEROUS WEAPON", "GUN", "Assault with Dangerous Weapon"),
     ("BURGLARY", None, "Burglary"),
     ("ARSON", None, "Arson"),
     ("MOTOR VEHICLE THEFT", None, "Motor Vehicle Theft"),
-    ("THEFT/OTHER", None, "Theft (other)"),
+    ("THEFT/OTHER", None, "Theft (Other)"),
     ("THEFT F/AUTO", None, "Theft from Auto"),
 ])
 def test_humanize_offense_known_codes(offense, method, expected):
@@ -20,9 +20,9 @@ def test_humanize_offense_known_codes(offense, method, expected):
 
 
 def test_humanize_offense_robbery_armed():
-    """Robbery with a weapon collapses to 'Armed robbery' for headline impact."""
-    assert humanize_offense("ROBBERY", "GUN") == "Armed robbery"
-    assert humanize_offense("ROBBERY", "KNIFE") == "Armed robbery"
+    """Robbery with a weapon collapses to 'Armed Robbery' for headline impact."""
+    assert humanize_offense("ROBBERY", "GUN") == "Armed Robbery"
+    assert humanize_offense("ROBBERY", "KNIFE") == "Armed Robbery"
 
 
 def test_humanize_offense_robbery_unarmed():
@@ -46,11 +46,11 @@ def test_humanize_offense_handles_none_and_empty():
 # ----- humanize_method ---------------------------------------------------
 
 @pytest.mark.parametrize("method,expected", [
-    ("GUN", "gun"),
-    ("KNIFE", "knife"),
-    ("gun", "gun"),
-    ("Knife", "knife"),
-    (" GUN ", "gun"),
+    ("GUN", "Gun"),
+    ("KNIFE", "Knife"),
+    ("gun", "Gun"),
+    ("Knife", "Knife"),
+    (" GUN ", "Gun"),
 ])
 def test_humanize_method_known(method, expected):
     assert humanize_method(method) == expected
