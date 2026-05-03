@@ -47,9 +47,12 @@ PSA - The Police District ...
 """
 
 
-# Synthetic arrest body — modeled on MPD's arrest-report layout (same shape
-# as the PDF we already parse), since we don't have a verbatim sample on
-# hand.
+# Sample arrest body — modeled on the real MPD email layout. Crucially:
+# arrest emails do NOT have a "KEY:" legend footer; they go straight from
+# the last record into the "Reminder:" / "Disclaimer:" boilerplate plus
+# the GovDelivery email signature. The parser must stop at one of those
+# footer markers or it will glue the boilerplate onto the last record's
+# last field via the continuation-line logic.
 ARREST_BODY_3D = """\
 [image: MPD Arrest Blotter - 3D]
 
@@ -77,9 +80,11 @@ Age 25
 Offense Simple Assault
 Felony/Misdemeanor MISDEMEANOR
 Officer Smith 99999
-KEY:
-
-Arrest Number# - ...
+Reminder: Arrests do not constitute guilt in the criminal justice system.
+Disclaimer: This listing may contain duplicate records.
+Please Note: On 1/10/2019, MPD realigned police district boundaries.
+*Metropolitan Police Department*
+Office of Communications
 """
 
 
@@ -281,9 +286,17 @@ def test_parse_arrest_email_handles_unparseable_age(monkeypatch):
     assert out[0].age is None
 
 
-def test_parse_arrest_email_stops_at_key_footer():
+def test_parse_arrest_email_stops_at_reminder_footer():
+    """Arrest emails don't have a 'KEY:' footer — they end with the
+    'Reminder:' / 'Disclaimer:' / 'Please Note:' boilerplate. Without
+    explicit termination there, the continuation-line logic glues all
+    that text onto the last record's last field (officer)."""
     out = parse_arrest_email(
         subject="MPD: Preliminary Arrest Report for 3D",
         text_body=ARREST_BODY_3D,
     )
     assert len(out) == 2
+    # The last record's officer must be JUST the officer — no boilerplate.
+    assert out[-1].officer == "Smith 99999"
+    # And nothing leaked into earlier fields either.
+    assert "Reminder" not in (out[-1].offense or "")

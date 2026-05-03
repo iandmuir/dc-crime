@@ -102,8 +102,15 @@ _BODY_DISTRICT_RE = re.compile(
     re.IGNORECASE,
 )
 
-# "KEY:" on its own line marks the legend footer — stop parsing there.
-_KEY_FOOTER = "KEY:"
+# Markers that terminate record parsing. Crime reports end with the
+# "KEY:" legend; arrest reports go straight from the last record into
+# the "Reminder:" / "Disclaimer:" boilerplate. Anything matching one of
+# these prefixes ends the record loop so footer text never gets glued
+# onto the previous field via the continuation-line logic.
+_FOOTER_RE = re.compile(
+    r"^(KEY|Reminder|Disclaimer|Please\s+Note)\s*[:\-]",
+    re.IGNORECASE,
+)
 
 
 # Field labels (in body) keyed by canonical field name. Order matters for
@@ -223,7 +230,7 @@ def _iter_record_blocks(
         line = raw.strip()
         if not line:
             continue
-        if line.upper() == _KEY_FOOTER:
+        if _FOOTER_RE.match(line):
             break
 
         # Skip everything before the first record (forwarded headers,
