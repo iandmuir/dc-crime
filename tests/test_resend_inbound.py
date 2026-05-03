@@ -6,6 +6,7 @@ import pytest
 from wswdy.clients.resend_inbound import (
     ResendInboundError,
     download_attachment,
+    get_received_email,
     list_attachments,
 )
 
@@ -78,3 +79,33 @@ async def test_download_attachment_raises_on_http_error():
                return_value=_mock_client([_resp(404, text="missing")])):
         with pytest.raises(ResendInboundError, match="404"):
             await download_attachment("https://x/y")
+
+
+@pytest.mark.asyncio
+async def test_get_received_email_returns_full_payload():
+    payload = {
+        "id": "em_42",
+        "subject": "MPD: Preliminary Crime Report for 2D",
+        "text": "...body...",
+        "html": "<div>body</div>",
+        "from": "noreply@mpd",
+    }
+    with patch("wswdy.clients.resend_inbound.httpx.AsyncClient",
+               return_value=_mock_client([_resp(200, json=payload)])):
+        out = await get_received_email("em_42", api_key="k")
+    assert out["subject"].endswith("2D")
+    assert "body" in out["text"]
+
+
+@pytest.mark.asyncio
+async def test_get_received_email_raises_on_http_error():
+    with patch("wswdy.clients.resend_inbound.httpx.AsyncClient",
+               return_value=_mock_client([_resp(404, text="not found")])):
+        with pytest.raises(ResendInboundError, match="404"):
+            await get_received_email("em_42", api_key="k")
+
+
+@pytest.mark.asyncio
+async def test_get_received_email_requires_api_key():
+    with pytest.raises(ResendInboundError, match="not configured"):
+        await get_received_email("em_42", api_key="")
