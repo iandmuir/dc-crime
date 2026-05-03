@@ -33,6 +33,32 @@ class ResendInboundError(Exception):
     """Raised when Resend's API returns an unexpected response."""
 
 
+async def get_received_email(
+    email_id: str, *, api_key: str, timeout_s: float = 15.0,
+) -> dict[str, Any]:
+    """Fetch a received email's full payload (subject, html, text, headers).
+
+    The webhook payload only carries metadata, so to read the email body
+    we have to call this endpoint:
+
+        GET https://api.resend.com/emails/receiving/{email_id}
+
+    Returns the email's full JSON record. Important keys for our use:
+    ``subject``, ``text`` (plain-text body), ``html``, ``from``, ``to``.
+    """
+    if not api_key:
+        raise ResendInboundError("Resend API key is not configured")
+    url = f"{API_BASE}/emails/receiving/{email_id}"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    async with httpx.AsyncClient(timeout=timeout_s) as client:
+        r = await client.get(url, headers=headers)
+        if r.status_code >= 400:
+            raise ResendInboundError(
+                f"get_received_email {r.status_code}: {r.text[:200]}"
+            )
+        return r.json()
+
+
 async def list_attachments(
     email_id: str, *, api_key: str, timeout_s: float = 15.0,
 ) -> list[dict[str, Any]]:

@@ -153,64 +153,67 @@ def test_inbound_400_when_missing_email_id(app):
     assert r.status_code == 400
 
 
-@patch("wswdy.routes.inbound_webhook.ingest_pdf", new_callable=AsyncMock)
-@patch("wswdy.routes.inbound_webhook.download_attachment", new_callable=AsyncMock)
-@patch("wswdy.routes.inbound_webhook.list_attachments", new_callable=AsyncMock)
-def test_inbound_happy_path_downloads_pdfs_and_runs_ingest(
-    mock_list, mock_download, mock_ingest, app,
+@patch("wswdy.routes.inbound_webhook.ingest_email", new_callable=AsyncMock)
+@patch("wswdy.routes.inbound_webhook.get_received_email", new_callable=AsyncMock)
+def test_inbound_happy_path_fetches_body_and_ingests(
+    mock_get, mock_ingest, app,
 ):
-    mock_list.return_value = [
-        {"id": "att1", "filename": "crime.pdf",
-         "content_type": "application/pdf",
-         "download_url": "https://r/att1"},
-        {"id": "att2", "filename": "logo.png",   # non-PDF — should be skipped
-         "content_type": "image/png",
-         "download_url": "https://r/att2"},
-    ]
-    mock_download.return_value = b"%PDF-1.7 fake"
-    mock_ingest.return_value = {"status": "ok", "kind": "crime",
-                                 "added": 4, "updated": 0}
+    """Webhook fetches the email body via Resend's API, then hands the
+    subject + plain-text body to the email-driven ingest job."""
+    mock_get.return_value = {
+        "id": "em_42",
+        "subject": "MPD: Preliminary Crime Report for 2D",
+        "text": "This report contains information about recent crimes "
+                "reported in the 2D District.\nPSA 202\nCCN 999\n...",
+        "html": "<div>...</div>",
+    }
+    mock_ingest.return_value = {
+        "status": "ok", "kind": "crime", "district": "2D",
+        "added": 4, "updated": 0, "total": 4,
+    }
 
     client = TestClient(app)
     body = json.dumps({
         "type": "email.received",
         "data": {"email_id": "em_42", "from": "noreply@mpd",
-                 "to": ["mpd@inbound.iandmuir.com"]},
+                 "to": ["mpd@hoosoluafe.resend.app"]},
     }).encode()
     r = _signed_post(client, body)
     assert r.status_code == 200
     out = r.json()
     assert out["status"] == "ok"
     assert out["email_id"] == "em_42"
-    assert len(out["results"]) == 1                # only the PDF ingested
-    assert out["results"][0]["filename"] == "crime.pdf"
+    assert out["district"] == "2D"
+    assert out["added"] == 4
 
-    # Resend client called with our email_id + API key
-    mock_list.assert_awaited_once_with("em_42", api_key="r-key")
-    # Only the PDF was downloaded
-    mock_download.assert_awaited_once_with("https://r/att1")
-    # ingest_pdf got the temp-saved PDF
+    mock_get.assert_awaited_once_with("em_42", api_key="r-key")
     mock_ingest.assert_awaited_once()
+    # ingest got the subject + text body, not the attachments
+    call_kwargs = mock_ingest.await_args.kwargs
+    assert call_kwargs["subject"] == "MPD: Preliminary Crime Report for 2D"
+    assert "2D District" in call_kwargs["text_body"]
+    assert call_kwargs["source_file"] == "em_42"
 
 
-@patch("wswdy.routes.inbound_webhook.list_attachments", new_callable=AsyncMock)
-def test_inbound_no_pdfs_returns_no_pdfs(mock_list, app):
-    mock_list.return_value = [
-        {"id": "att1", "filename": "logo.png", "content_type": "image/png",
-         "download_url": "https://r/att1"},
-    ]
+@patch("wswdy.routes.inbound_webhook.get_received_email", new_callable=AsyncMock)
+def test_inbound_no_text_body_returns_no_text_body(mock_get, app):
+    """If Resend sends an email with no plain-text part, we surface that
+    as an explicit status rather than crashing — and we don't retry."""
+    mock_get.return_value = {
+        "id": "em_42", "subject": "Crime Report 2D", "text": "", "html": "<p>x</p>",
+    }
     client = TestClient(app)
     body = json.dumps({"type": "email.received",
                         "data": {"email_id": "em_42"}}).encode()
     r = _signed_post(client, body)
     assert r.status_code == 200
-    assert r.json()["status"] == "no_pdfs"
+    assert r.json()["status"] == "no_text_body"
 
 
-@patch("wswdy.routes.inbound_webhook.list_attachments", new_callable=AsyncMock)
-def test_inbound_502_when_resend_api_fails(mock_list, app):
+@patch("wswdy.routes.inbound_webhook.get_received_email", new_callable=AsyncMock)
+def test_inbound_502_when_resend_api_fails(mock_get, app):
     from wswdy.clients.resend_inbound import ResendInboundError
-    mock_list.side_effect = ResendInboundError("upstream 500")
+    mock_get.side_effect = ResendInboundError("upstream 500")
     client = TestClient(app)
     body = json.dumps({"type": "email.received",
                         "data": {"email_id": "em_42"}}).encode()
@@ -218,20 +221,18 @@ def test_inbound_502_when_resend_api_fails(mock_list, app):
     assert r.status_code == 502
 
 
-@patch("wswdy.routes.inbound_webhook.ingest_pdf", new_callable=AsyncMock)
-@patch("wswdy.routes.inbound_webhook.download_attachment", new_callable=AsyncMock)
-@patch("wswdy.routes.inbound_webhook.list_attachments", new_callable=AsyncMock)
+@patch("wswdy.routes.inbound_webhook.ingest_email", new_callable=AsyncMock)
+@patch("wswdy.routes.inbound_webhook.get_received_email", new_callable=AsyncMock)
 def test_inbound_ingest_failure_does_not_500(
-    mock_list, mock_download, mock_ingest, app,
+    mock_get, mock_ingest, app,
 ):
-    """A bad PDF should not blow up the whole request — log + continue, 200."""
-    mock_list.return_value = [
-        {"id": "att1", "filename": "crime.pdf",
-         "content_type": "application/pdf",
-         "download_url": "https://r/att1"},
-    ]
-    mock_download.return_value = b"not a real pdf"
-    mock_ingest.side_effect = RuntimeError("pdfplumber boom")
+    """A parsing failure should not blow up the whole request — log +
+    return a 200 with an error summary so Resend doesn't retry."""
+    mock_get.return_value = {
+        "id": "em_42", "subject": "Crime Report 2D",
+        "text": "garbage that doesn't parse",
+    }
+    mock_ingest.side_effect = RuntimeError("parser boom")
 
     client = TestClient(app)
     body = json.dumps({"type": "email.received",
@@ -239,5 +240,5 @@ def test_inbound_ingest_failure_does_not_500(
     r = _signed_post(client, body)
     assert r.status_code == 200
     out = r.json()
-    assert out["results"][0]["status"] == "error"
-    assert "pdfplumber" in out["results"][0]["error"]
+    assert out["status"] == "error"
+    assert "parser boom" in out["error"]
