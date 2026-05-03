@@ -140,10 +140,16 @@ _ADDR_TAIL_RE = re.compile(
     r"(?:\s+UNITED\s+STATES)?\s*$",
     re.IGNORECASE,
 )
-# Defensive cleanup for the partial cases — no zip, just trailing
-# "UNITED STATES", or "WASHINGTON, DC" with no zip.
+# Defensive cleanup for partial / malformed cases. We've seen all of:
+#
+#   "INDEPENDENCE AVENUE SW UNITED STATES"
+#   "200 K ST NW WASHINGTON, DC"           (no zip)
+#   "1101 NEW YORK AVE NW WASHINGTON, 2 DC" (typo in MPD's data)
+#
+# So strip everything from "WASHINGTON" onward when present, plus any
+# trailing "UNITED STATES" suffix on its own.
 _ADDR_TRAILING_NOISE_RE = re.compile(
-    r"\s+(WASHINGTON,?\s+D\.?C\.?(?:\s+\d{5})?|UNITED\s+STATES)\s*$",
+    r"\s+(WASHINGTON\b.*|UNITED\s+STATES)\s*$",
     re.IGNORECASE,
 )
 

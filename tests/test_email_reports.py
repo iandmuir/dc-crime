@@ -177,6 +177,21 @@ def test_clean_arrest_location_intersection_unchanged():
     ) == "14TH STREET NW & K STREET NW"
 
 
+def test_clean_arrest_location_handles_malformed_tail():
+    """Real MPD data: '...WASHINGTON, 2 DC' (typo — zip mangled). When
+    we can't extract a clean zip, drop everything from 'WASHINGTON'
+    onward rather than leaving the garbage in."""
+    assert clean_arrest_location(
+        "1101 NEW YORK AVE NW WASHINGTON, 2 DC"
+    ) == "1101 NEW YORK AVE NW"
+
+
+def test_clean_arrest_location_handles_washington_no_zip():
+    assert clean_arrest_location(
+        "200 K STREET NW WASHINGTON, DC"
+    ) == "200 K STREET NW"
+
+
 def test_clean_arrest_location_strips_trailing_united_states_only():
     """Some addresses just have 'UNITED STATES' tacked on with no city/zip."""
     assert clean_arrest_location(
