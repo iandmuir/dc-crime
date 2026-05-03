@@ -779,8 +779,14 @@ body {
   border: 2px solid var(--surface);
   box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
-.marker.t1 { background: var(--t1); }
-.marker.t2 { background: var(--t2); }
+/* Unified severity palette across crimes and crashes:
+     tier 1 (violent / fatal)            → black
+     tier 2 (property / major injury)    → red
+     tier 3 (vehicle / minor injury)     → amber
+     tier 4 (petty / property-only)      → green
+   The legend swatches further down mirror these values. */
+.marker.t1 { background: #0a0a0a; }
+.marker.t2 { background: var(--t1); }
 .marker.t3 { background: var(--t3); }
 .marker.t4 { background: var(--t4); }
 
@@ -801,23 +807,20 @@ body {
   color: #fff;  /* drives currentColor inside the inline SVG */
 }
 .crash-icon svg, .arrest-icon svg { display: block; }
-.crash-icon.t1 { background: #0a0a0a; }              /* fatal — black */
-.crash-icon.t2 { background: var(--t1); }             /* major — red */
-.crash-icon.t3 { background: var(--t2); }             /* minor — orange */
+.crash-icon.t1 { background: #0a0a0a; }               /* fatal — black */
+.crash-icon.t2 { background: var(--t1); }              /* major — red */
+.crash-icon.t3 { background: var(--t3); }              /* minor — amber */
 
-/* Property-only crashes are the most common — most blocks see several
-   per week. Render them noticeably smaller and muted so they recede
-   into background context and don't drown out the marker tiers that
-   actually involved injuries. */
+/* Property-only crashes use the same green as petty crime so the unified
+   severity palette holds. They're still slightly smaller than the injury
+   tiers — keeps the visual hierarchy (injuries > property damage) without
+   breaking the color mapping subscribers learn from the legend. */
 .crash-icon.t4 {
-  width: 14px;
-  height: 14px;
-  background: var(--ink-4);
-  border-width: 1px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
-  opacity: 0.7;
+  width: 18px;
+  height: 18px;
+  background: var(--t4);
 }
-.crash-icon.t4 svg { width: 10px; height: 10px; }
+.crash-icon.t4 svg { width: 11px; height: 11px; }
 
 /* Arrest markers — sheriff-badge silhouette inside a navy/teal-tinted disc.
    Tier here is felony / misdemeanor / unspecified, mapped onto a darker
@@ -900,12 +903,8 @@ body {
 }
 .legend-row .swatch.crash-swatch.t1 { background: #0a0a0a; }
 .legend-row .swatch.crash-swatch.t2 { background: var(--t1); }
-.legend-row .swatch.crash-swatch.t3 { background: var(--t2); }
-/* "Property only" swatch is muted to mirror the faded marker on the map. */
-.legend-row .swatch.crash-swatch.t4 {
-  background: var(--ink-4);
-  opacity: 0.7;
-}
+.legend-row .swatch.crash-swatch.t3 { background: var(--t3); }
+.legend-row .swatch.crash-swatch.t4 { background: var(--t4); }
 
 .legend-row .swatch.arrest-swatch.t1 { background: #1e3a8a; }
 .legend-row .swatch.arrest-swatch.t2 { background: #0f766e; }
