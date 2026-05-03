@@ -55,6 +55,21 @@ class Settings(BaseSettings):
 
     ha_webhook_url: str = ""
 
+    # Resend Inbound — webhook endpoint receives `email.received` events,
+    # then we call Resend's Attachments API to download the PDFs. The
+    # webhook secret is the Svix-style signing key Resend gives you when
+    # you create the webhook (begins with `whsec_`).
+    resend_api_key: str = Field("", alias="RESEND_API_KEY")
+    resend_inbound_webhook_secret: str = Field(
+        "", alias="RESEND_INBOUND_WEBHOOK_SECRET",
+    )
+    # Tolerance for the Svix timestamp check (in seconds). Default 5 min
+    # protects against replay attacks while still working over modest
+    # clock skew.
+    resend_webhook_tolerance_s: int = Field(
+        300, alias="RESEND_WEBHOOK_TOLERANCE_S",
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

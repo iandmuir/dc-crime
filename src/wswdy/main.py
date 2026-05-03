@@ -28,6 +28,7 @@ from wswdy.routes import (
     api_crimes,
     api_preview,
     health,
+    inbound_webhook,
     map_view,
     public,
     unsubscribe,
@@ -181,6 +182,7 @@ def create_app() -> FastAPI:
     app.include_router(api_arrests.router)
     app.include_router(api_crashes.router)
     app.include_router(api_crimes.router)
+    app.include_router(inbound_webhook.router)
     app.include_router(api_preview.router)
     app.include_router(health.router)
     app.include_router(map_view.router)
