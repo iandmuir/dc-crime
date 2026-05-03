@@ -2,7 +2,6 @@
 
 Daily ET-anchored jobs:
 
-  prune     03:00       cleans old data
   send      06:00-19:00 hourly — adaptive: tries to ship the daily digest
                                every hour until either yesterday's MPD
                                batch lands or we hit the 7 PM cutoff.
@@ -14,6 +13,10 @@ Daily ET-anchored jobs:
 The standalone fetch job is gone: every hourly send trigger fetches first,
 which both replaces the morning fetch and gives the freshness check the
 freshest possible view of the feed.
+
+There is no prune job — we deliberately retain crime / crash / arrest
+history indefinitely so the map can support arbitrary lookback windows
+in the future. SQLite handles years of DC-volume data trivially.
 """
 from collections.abc import Awaitable, Callable
 from zoneinfo import ZoneInfo
@@ -23,18 +26,16 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 ET = ZoneInfo("America/New_York")
-JOB_IDS = ("prune", "send", "inbound", "health")
+JOB_IDS = ("send", "inbound", "health")
 
 
 def build_scheduler(
     *, fetch_fn: Callable[[], Awaitable[None]],  # noqa: ARG001 — kept for API compat
     send_fn: Callable[[], Awaitable[None]],
-    prune_fn: Callable[[], Awaitable[None]],
     health_fn: Callable[[], Awaitable[None]],
     inbound_fn: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncIOScheduler:
     s = AsyncIOScheduler(timezone=ET)
-    s.add_job(prune_fn, CronTrigger(hour=3, minute=0, timezone=ET), id="prune")
     s.add_job(
         send_fn,
         CronTrigger(hour="6-19", minute=0, timezone=ET),
