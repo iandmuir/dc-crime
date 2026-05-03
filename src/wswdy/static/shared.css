@@ -221,10 +221,11 @@ body {
 }
 .field-hint strong { color: var(--ink); font-weight: 600; }
 
-/* WhatsApp phone input — country code dropdown + national digits, both
-   inside the same border so the control reads as one unified field.
-   The dropdown forces subscribers to acknowledge the country code,
-   which is the missing piece that lets WhatsApp actually deliver. */
+/* WhatsApp phone input — country code (small, editable) + national
+   digits, both inside the same border so the control reads as a single
+   unified field. The split forces subscribers to acknowledge the
+   country code (defaulted to +1) — which is the missing piece that
+   lets WhatsApp actually deliver. */
 .phone-input-group {
   display: flex;
   align-items: stretch;
@@ -238,34 +239,39 @@ body {
   border-color: var(--ink);
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
 }
-.phone-country {
-  flex: 0 0 auto;
-  width: 4rem;
+/* Both inputs need explicit overrides for every default we care about.
+   Without ``min-width: 0`` the national input refuses to shrink below
+   its intrinsic width and then collides with the wrapper, sometimes
+   forcing it off-screen. Without explicit border-radius/border resets
+   the inherited ``.field-input`` styles draw a second border inside
+   the wrapper. */
+.phone-input-group .phone-country,
+.phone-input-group .phone-input-national {
   border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  min-width: 0;
+}
+.phone-input-group .phone-country:focus,
+.phone-input-group .phone-input-national:focus {
+  outline: none;
+  box-shadow: none;
+}
+.phone-input-group .phone-country {
+  flex: 0 0 4.5rem;
   border-right: 1px solid var(--border-2);
   background: var(--surface-2);
-  padding: 0 0.65rem;
+  padding: 0.7rem 0.5rem;
   font-family: var(--font-mono);
   font-weight: 600;
   font-size: 0.95rem;
   color: var(--ink);
   text-align: center;
 }
-.phone-country:focus {
-  outline: none;
-  background: var(--surface);
-}
 .phone-input-group .phone-input-national {
-  border: none;
-  border-radius: 0;
-  flex: 1;
-  background: transparent;
-  /* Override the default focus glow — the wrapper handles it now. */
-  box-shadow: none;
-}
-.phone-input-group .phone-input-national:focus {
-  outline: none;
-  box-shadow: none;
+  flex: 1 1 auto;
+  padding: 0.7rem 0.85rem;
 }
 .field-label {
   display: block;
