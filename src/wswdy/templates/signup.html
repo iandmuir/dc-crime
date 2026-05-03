@@ -148,6 +148,46 @@
     });
   });
 
+  // Country-code field — guarantee a leading "+" no matter what the
+  // subscriber types or pastes. Without this, it's easy to delete the
+  // "+", end up with "1" instead of "+1", and silently break delivery.
+  // The handler runs on every input event, normalizing the value
+  // back into "+<1-3 digits>" form. Caret position is preserved on
+  // simple typing — when we have to inject the "+" we put the caret
+  // right after it.
+  const countryField = document.getElementById('phone_country');
+  if (countryField) {
+    countryField.addEventListener('input', () => {
+      const before = countryField.selectionStart;
+      const raw = countryField.value;
+      // Keep digits + the first "+" only.
+      let digits = raw.replace(/[^\d]/g, '');
+      // E.164 country codes are 1-3 digits.
+      digits = digits.slice(0, 3);
+      const next = '+' + digits;
+      if (next !== raw) {
+        countryField.value = next;
+        // If the user nuked the "+", caret was at 0 — bump it past
+        // the restored "+". Otherwise keep their offset.
+        const caret = before === 0 ? 1 : Math.min(before, next.length);
+        countryField.setSelectionRange(caret, caret);
+      }
+    });
+    // Block any keystroke that would land the caret strictly before
+    // the "+" (left-arrow + delete from position 0, etc).
+    countryField.addEventListener('keydown', (e) => {
+      if (
+        e.key === 'Backspace'
+        && countryField.selectionStart === 1
+        && countryField.selectionEnd === 1
+      ) {
+        // Caret is right after "+", with nothing selected — backspace
+        // here would delete the "+". Block it.
+        e.preventDefault();
+      }
+    });
+  }
+
   // Element references (declared up front so all handlers can use them)
   const r = document.getElementById('radius');
   const num = document.getElementById('radius-num');
