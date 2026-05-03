@@ -1,5 +1,6 @@
 """Tests for email_reports — parsing MPD plain-text email bodies."""
 from wswdy.email_reports import (
+    clean_arrest_location,
     detect_kind_from_subject,
     extract_district,
     parse_arrest_email,
@@ -149,6 +150,56 @@ def test_extract_district_returns_none_when_neither_has_one():
     assert extract_district("Hello", "Nothing here") is None
 
 
+# ---- address cleaner ----
+
+def test_clean_arrest_location_strips_full_tail():
+    assert clean_arrest_location(
+        "1219 CONNECTICUT AVENUE NW WASHINGTON, DC 20036 UNITED STATES"
+    ) == "1219 CONNECTICUT AVENUE NW, 20036"
+
+
+def test_clean_arrest_location_handles_no_comma_after_washington():
+    assert clean_arrest_location(
+        "5028 BELT ROAD NW WASHINGTON DC 20016 UNITED STATES"
+    ) == "5028 BELT ROAD NW, 20016"
+
+
+def test_clean_arrest_location_handles_dotted_dc():
+    assert clean_arrest_location(
+        "200 K STREET NW WASHINGTON, D.C. 20001"
+    ) == "200 K STREET NW, 20001"
+
+
+def test_clean_arrest_location_intersection_unchanged():
+    """Intersections lack a zip — leave untouched."""
+    assert clean_arrest_location(
+        "14TH STREET NW & K STREET NW"
+    ) == "14TH STREET NW & K STREET NW"
+
+
+def test_clean_arrest_location_strips_trailing_united_states_only():
+    """Some addresses just have 'UNITED STATES' tacked on with no city/zip."""
+    assert clean_arrest_location(
+        "INDEPENDENCE AVENUE SW UNITED STATES"
+    ) == "INDEPENDENCE AVENUE SW"
+
+
+def test_clean_arrest_location_handles_none_and_empty():
+    assert clean_arrest_location(None) is None
+    assert clean_arrest_location("") == ""
+
+
+def test_parse_arrest_email_cleans_address_on_ingest():
+    """End-to-end: the multi-line address in the body comes back trimmed."""
+    out = parse_arrest_email(
+        subject="MPD: Preliminary Arrest Report for 3D",
+        text_body=ARREST_BODY_3D,
+    )
+    assert out[0].arrest_location == "5028 BELT ROAD NW, 20016"
+    assert out[1].arrest_location == "1100 NEW YORK AVE NW, 20002"
+    assert out[2].arrest_location == "200 K STREET NW, 20001"
+
+
 # ---- crime parser ----
 
 def test_parse_crime_email_returns_two_records():
@@ -258,15 +309,15 @@ def test_parse_arrest_email_extracts_full_arrestee_record():
 
 
 def test_parse_arrest_email_joins_multi_line_address_in_body():
-    """The default fixture above puts the address across 3 lines —
-    verify the canonical example also assembles correctly."""
+    """The default fixture splits the address across 3 lines (street,
+    city/state/zip, country). The parser must join the three lines AND
+    then run them through the address cleaner — so the result keeps
+    the street + zip but drops the city/country noise."""
     out = parse_arrest_email(
         subject="MPD: Preliminary Arrest Report for 3D",
         text_body=ARREST_BODY_3D,
     )
-    assert "5028 BELT ROAD NW" in out[0].arrest_location
-    assert "WASHINGTON, DC 20016" in out[0].arrest_location
-    assert "UNITED STATES" in out[0].arrest_location
+    assert out[0].arrest_location == "5028 BELT ROAD NW, 20016"
 
 
 # (Multi-line address parsing is now covered by
