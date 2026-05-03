@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
 
-from wswdy.icons import ICON_BADGE_SVG, ICON_CAR_SVG
+from wswdy.icons import ICON_BADGE_SVG, ICON_CAR_SVG, ICON_HOME_SVG
 from wswdy.repos import subscribers as subs_repo
 from wswdy.tokens import TokenError, verify
 
@@ -31,5 +31,6 @@ async def map_view(request: Request, sid: str, token: str):
             "maptiler_key": settings.maptiler_api_key,
             "icon_car_svg": ICON_CAR_SVG,
             "icon_badge_svg": ICON_BADGE_SVG,
+            "icon_home_svg": ICON_HOME_SVG,
         },
     )
