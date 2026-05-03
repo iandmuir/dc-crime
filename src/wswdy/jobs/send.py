@@ -25,6 +25,7 @@ def _parse_iso_as_utc(s: str) -> datetime:
 from wswdy.alerts import AdminAlerter
 from wswdy.digest import build_digest_text
 from wswdy.notifiers.base import Notifier, dispatch
+from wswdy.repos.arrests import list_in_radius_window as list_arrests_in_radius_window
 from wswdy.repos.crashes import list_in_radius_window as list_crashes_in_radius_window
 from wswdy.repos.crimes import list_in_radius_window
 from wswdy.repos.fetch_log import last_successful
@@ -62,6 +63,11 @@ async def run_daily_sends(
     log.info("Daily send: %d active subscribers", len(actives))
 
     mpd_warning = _is_feed_stale(db, now_iso=now_iso)
+    # Surface to each digest whether today's arrest LISTSERV email has
+    # arrived — disambiguates "0 arrests reported" from "report not in
+    # yet" so the digest can say "no report yet" instead of misleading
+    # "0 arrests" on days when MPD's email is delayed.
+    _, have_arrest_today = listserv_reports_in_today(db, now_iso=now_iso)
 
     sent = failed = skipped = 0
     now_dt = _parse_iso_as_utc(now_iso)
@@ -97,6 +103,13 @@ async def run_daily_sends(
             db, sub["lat"], sub["lon"], sub["radius_m"],
             start=crash_start_iso, end=end_iso,
         )
+        # Arrests use the same 24h window as crimes — that's
+        # "yesterday's report just arrived this morning". The repo
+        # excludes ungeocoded rows automatically.
+        arrests = list_arrests_in_radius_window(
+            db, sub["lat"], sub["lon"], sub["radius_m"],
+            start=start_iso, end=end_iso,
+        )
         # "Newly reported" = crashes that landed in our DB since the
         # previous daily fetch. Crash data has a 3-5 day publishing lag,
         # so this is the most actionable signal — without it the digest
@@ -115,6 +128,7 @@ async def run_daily_sends(
             display_name=sub["display_name"], radius_m=sub["radius_m"],
             crimes=crimes, crashes=crashes,
             new_crash_count=new_crash_count,
+            arrests=arrests, have_arrest_today=have_arrest_today,
             home_lat=sub["lat"], home_lon=sub["lon"],
             map_url=map_url, unsubscribe_url=unsub_url,
             mpd_warning=mpd_warning,
@@ -174,6 +188,31 @@ def _is_feed_stale(db: sqlite3.Connection, *, now_iso: str) -> bool:
     return (now_dt - last_dt) > timedelta(hours=24)
 
 
+def listserv_reports_in_today(
+    db: sqlite3.Connection, *, now_iso: str,
+) -> tuple[bool, bool]:
+    """Return (have_crime_today, have_arrest_today) for the LISTSERV
+    pipeline. Used by the morning send to wait until both today's
+    crime AND arrest emails have landed (per pdf_ingest_log) before
+    shipping the daily digest. Without this check, the digest goes out
+    before MPD's ~7:50-8:05 AM batch arrives, and arrest counts are
+    always a day stale.
+    """
+    today_et_start = (
+        _parse_iso_as_utc(now_iso).astimezone(ET).date()
+    )
+    start_dt = datetime.combine(
+        today_et_start, datetime.min.time(), tzinfo=ET,
+    ).astimezone(UTC).isoformat()
+    rows = db.execute(
+        """SELECT kind, COUNT(*) FROM pdf_ingest_log
+           WHERE ingested_at >= ? GROUP BY kind""",
+        (start_dt,),
+    ).fetchall()
+    counts = {r[0]: r[1] for r in rows}
+    return counts.get("crime", 0) > 0, counts.get("arrest", 0) > 0
+
+
 def feed_has_yesterdays_data(
     db: sqlite3.Connection, *, now_iso: str, min_records: int = 5,
 ) -> bool:
@@ -212,18 +251,24 @@ async def run_send_if_ready(
     base_url: str,
     hmac_secret: str,
     now_iso: str,
-    cutoff_hour_et: int = 19,
+    cutoff_hour_et: int = 8,
+    cutoff_minute_et: int = 10,
     render_static_map: Callable[..., Awaitable[Path]] | None = None,
     static_map_dir: Path = Path("./static_maps"),
 ) -> dict:
-    """Adaptive daily send. Runs cheaply on every hourly trigger; only fires
-    the actual digest send when:
+    """Adaptive daily send. Runs frequently in the morning window; only
+    fires the actual digest send when:
 
       - we haven't already sent today AND
-      - (the MPD feed contains yesterday's data OR we're past the cutoff hour)
+      - (we have today's crime AND arrest LISTSERV reports
+         AND yesterday's MPD ArcGIS data is in
+         OR we're at/past the cutoff time of day)
 
-    The cutoff is the "force-send no later than" guard for days when MPD
-    publishes late or not at all.
+    The morning window matters because MPD's daily LISTSERV batch arrives
+    between ~7:50 AM (crime) and ~8:05 AM (arrest) ET. Waiting for both
+    means the digest reflects the full day's reporting; the cutoff
+    (default 08:10 ET) is the "force-send no later than" guard so a
+    delayed batch can never block a digest indefinitely.
 
     Returns a status dict; the {sent, failed, skipped} counts are present
     only when an actual send fired.
@@ -236,20 +281,36 @@ async def run_send_if_ready(
         return {"status": "already_sent_today", "send_date": send_date}
 
     is_fresh = feed_has_yesterdays_data(db, now_iso=now_iso)
-    now_hour_et = _parse_iso_as_utc(now_iso).astimezone(ET).hour
-    is_cutoff = now_hour_et >= cutoff_hour_et
+    have_crime_today, have_arrest_today = listserv_reports_in_today(
+        db, now_iso=now_iso,
+    )
+    now_et = _parse_iso_as_utc(now_iso).astimezone(ET)
+    cutoff_dt = now_et.replace(
+        hour=cutoff_hour_et, minute=cutoff_minute_et, second=0, microsecond=0,
+    )
+    is_cutoff = now_et >= cutoff_dt
 
-    if not is_fresh and not is_cutoff:
+    is_ready = is_fresh and have_crime_today and have_arrest_today
+
+    if not is_ready and not is_cutoff:
         log.info(
-            "Adaptive send: feed not fresh yet (no yesterday data) and "
-            "before cutoff (%dh ET, cutoff=%dh) — waiting for next trigger",
-            now_hour_et, cutoff_hour_et,
+            "Adaptive send: waiting (fresh=%s, crime_today=%s, arrest_today=%s, "
+            "now=%s ET, cutoff=%02d:%02d ET)",
+            is_fresh, have_crime_today, have_arrest_today,
+            now_et.strftime("%H:%M"), cutoff_hour_et, cutoff_minute_et,
         )
-        return {"status": "waiting_for_fresh_data", "send_date": send_date}
+        return {
+            "status": "waiting_for_data",
+            "send_date": send_date,
+            "fresh": is_fresh,
+            "have_crime_today": have_crime_today,
+            "have_arrest_today": have_arrest_today,
+        }
 
     log.info(
-        "Adaptive send: dispatching (fresh=%s, cutoff=%s)",
-        is_fresh, is_cutoff,
+        "Adaptive send: dispatching (fresh=%s, crime_today=%s, "
+        "arrest_today=%s, cutoff=%s)",
+        is_fresh, have_crime_today, have_arrest_today, is_cutoff,
     )
     counts = await run_daily_sends(
         db=db, email=email, whatsapp=whatsapp, alerter=alerter,
@@ -260,7 +321,7 @@ async def run_send_if_ready(
         static_map_dir=static_map_dir,
     )
     return {
-        "status": "sent" if is_fresh else "sent_at_cutoff",
+        "status": "sent" if is_ready else "sent_at_cutoff",
         "send_date": send_date,
         **counts,
     }

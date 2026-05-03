@@ -18,11 +18,15 @@ class Settings(BaseSettings):
     # traverse. Defaults to {log_dir}/static_maps for dev convenience.
     static_map_dir: str = Field("", alias="WSWDY_STATIC_MAP_DIR")
 
-    # Adaptive send: hour-of-day in ET past which we force-send the daily
-    # digest even if MPD hasn't published yesterday's batch yet. The hourly
-    # trigger waits for fresh data up until this cutoff, then ships
-    # whatever's in the DB so subscribers get *something* every day.
-    send_cutoff_hour_et: int = Field(19, alias="WSWDY_SEND_CUTOFF_HOUR_ET")
+    # Adaptive send: time of day in ET past which we force-send the daily
+    # digest even if MPD hasn't published yesterday's batch and / or the
+    # day's crime + arrest LISTSERV emails haven't arrived. Defaults
+    # land just after MPD's typical morning batch window: crime emails
+    # arrive ~7:50 AM, arrest emails ~8:00-8:05 AM ET, so 08:10 catches
+    # both on a normal day while still letting subscribers receive
+    # *something* on days when MPD publishes late or not at all.
+    send_cutoff_hour_et: int = Field(8, alias="WSWDY_SEND_CUTOFF_HOUR_ET")
+    send_cutoff_minute_et: int = Field(10, alias="WSWDY_SEND_CUTOFF_MINUTE_ET")
 
     # Path to the WhatsApp bridge's messages.db. The inbound STOP scanner
     # reads it (read-only) to detect unsubscribe replies. Empty disables

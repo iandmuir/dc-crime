@@ -26,7 +26,9 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 ET = ZoneInfo("America/New_York")
-JOB_IDS = ("send", "inbound", "health")
+JOB_IDS = (
+    "send_morning_a", "send_morning_b", "send_fallback", "inbound", "health",
+)
 
 
 def build_scheduler(
@@ -36,10 +38,28 @@ def build_scheduler(
     inbound_fn: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncIOScheduler:
     s = AsyncIOScheduler(timezone=ET)
+    # Morning window — run every 5 min between 7:00 and 8:10 ET so we can
+    # ship the digest as soon as today's MPD LISTSERV batch arrives (crime
+    # ~7:50, arrest ~8:00-8:05). The send job itself is idempotent; once
+    # it sees today's data is in (or hits the cutoff), it ships and any
+    # subsequent triggers no-op via the "already sent today" guard.
     s.add_job(
         send_fn,
-        CronTrigger(hour="6-19", minute=0, timezone=ET),
-        id="send",
+        CronTrigger(hour="7", minute="*/5", timezone=ET),
+        id="send_morning_a",
+    )
+    s.add_job(
+        send_fn,
+        CronTrigger(hour="8", minute="0,5,10,15", timezone=ET),
+        id="send_morning_b",
+    )
+    # Hourly fallback later in the day in case morning never shipped
+    # (MPD outage, our service down, etc) — keeps the original "every
+    # subscriber gets *something* by EoD" guarantee.
+    s.add_job(
+        send_fn,
+        CronTrigger(hour="9-19", minute=0, timezone=ET),
+        id="send_fallback",
     )
     if inbound_fn is not None:
         s.add_job(inbound_fn, IntervalTrigger(minutes=5), id="inbound")

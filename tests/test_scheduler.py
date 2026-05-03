@@ -33,5 +33,10 @@ def test_jobs_have_expected_times():
     times = {j.id: str(j.trigger) for j in s.get_jobs()}
     # No prune anymore — we retain history indefinitely.
     assert "prune" not in times
-    assert "hour='6'" in times["send"]
+    # Morning window: 7 AM every 5 minutes, then 8 AM through :15
+    assert "hour='7'" in times["send_morning_a"]
+    assert "*/5" in times["send_morning_a"]
+    assert "hour='8'" in times["send_morning_b"]
+    # Hourly fallback resumes at 9 AM through 7 PM
+    assert "hour='9-19'" in times["send_fallback"]
     assert "hour='23'" in times["health"]

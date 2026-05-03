@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from wswdy.address import humanize_address
 from wswdy.geo import haversine_m
 from wswdy.offenses import humanize_offense
-from wswdy.tiers import classify, classify_crash
+from wswdy.tiers import classify, classify_arrest, classify_crash
 
 ET = ZoneInfo("America/New_York")
 
@@ -18,6 +18,17 @@ _TIER_LABEL = {1: "violent", 2: "serious property", 3: "vehicle", 4: "petty"}
 _CRASH_TIER_GLYPH = {1: "⚫", 2: "🔴", 3: "🟠", 4: "⚪"}
 _CRASH_TIER_LABEL = {
     1: "fatal", 2: "major injuries", 3: "minor injuries", 4: "property damage",
+}
+
+# Arrests have only 3 tiers (felony / misdemeanor / unspecified).
+# Glyphs mirror the crime palette so subscribers don't have to learn a
+# third color scheme — same red/yellow/grey severity ramp.
+_ARREST_TIER_GLYPH = {1: "🔴", 2: "🟡", 3: "⚪"}
+_ARREST_TIER_LABEL_SINGULAR = {
+    1: "felony", 2: "misdemeanor", 3: "unspecified",
+}
+_ARREST_TIER_LABEL_PLURAL = {
+    1: "felonies", 2: "misdemeanors", 3: "unspecified",
 }
 
 
@@ -128,6 +139,118 @@ def _crash_section_lines(
     return lines
 
 
+# ---------- arrest section ------------------------------------------------
+
+def _summarize_arrests_by_tier(arrests: list[dict]) -> dict[int, int]:
+    counts = {1: 0, 2: 0, 3: 0}
+    for a in arrests:
+        counts[classify_arrest(a)] += 1
+    return counts
+
+
+def _arrest_full_name(a: dict) -> str:
+    parts = []
+    for k in ("offender_first", "offender_last"):
+        v = (a.get(k) or "").strip().title()
+        if v:
+            parts.append(v)
+    return " ".join(parts)
+
+
+def _select_closest_arrests(
+    arrests: list[dict], *, home_lat: float, home_lon: float,
+    radius_m: int, max_items: int = 2,
+) -> list[dict]:
+    """Mirror of ``select_closest`` but for arrests. Same half-radius
+    threshold and distance sort."""
+    near_threshold = radius_m / 2
+    enriched = []
+    for a in arrests:
+        if a.get("lat") is None or a.get("lon") is None:
+            continue
+        d = haversine_m(home_lat, home_lon, a["lat"], a["lon"])
+        if d <= near_threshold:
+            enriched.append({**a, "distance_m": int(round(d))})
+    enriched.sort(key=lambda x: x["distance_m"])
+    return enriched[:max_items]
+
+
+def _arrest_callout(a: dict) -> str:
+    """Format one arrest into the multi-line 'closest' callout block."""
+    tier = classify_arrest(a)
+    label = _ARREST_TIER_LABEL_SINGULAR[tier].capitalize()
+    offense = (a.get("offense") or "Unknown offense").strip()
+    name = _arrest_full_name(a)
+    age = a.get("age")
+    gender = (a.get("gender") or "").strip()
+    demo_bits = []
+    if age:
+        demo_bits.append(str(age))
+    if gender:
+        demo_bits.append(gender[0].upper())
+    demo = f" ({name}, {', '.join(demo_bits)})" if name and demo_bits \
+        else f" ({name})" if name \
+        else ""
+    addr = humanize_address(a.get("arrest_location") or "")
+    when_t = _fmt_time(a["arrest_dt"]) if a.get("arrest_dt") else ""
+    when = f" · {when_t}" if when_t else ""
+    distance = f" · {a['distance_m']}m away" if "distance_m" in a else ""
+    return f"• {label} — {offense}{demo}\n   📍 {addr}{distance}{when}"
+
+
+def _arrest_section_lines(
+    arrests: list[dict],
+    radius_str: str,
+    *,
+    have_arrest_today: bool,
+    home_lat: float,
+    home_lon: float,
+    radius_m: int,
+) -> list[str]:
+    """Render the arrests block.
+
+    Three rendering paths:
+
+      - No report ingested today yet → "No arrest report yet for ..."
+        (so subscribers can tell missing data apart from a quiet day).
+      - Report in but zero arrests in radius → "No arrests within Xm..."
+      - Report in with arrests → tier counts + the 2 closest with name
+        / age / gender / address / time.
+    """
+    lines: list[str] = ["", ]
+    if not have_arrest_today:
+        lines.append(
+            f"👮 No arrest report yet today — usually arrives mid-morning."
+        )
+        return lines
+    if not arrests:
+        lines.append(
+            f"👮 No arrests within {radius_str} in the last 24h."
+        )
+        return lines
+
+    counts = _summarize_arrests_by_tier(arrests)
+    lines.append(f"👮 Arrests within {radius_str} (last 24h):")
+    for tier in (1, 2, 3):
+        c = counts[tier]
+        if c == 0:
+            continue
+        label = (_ARREST_TIER_LABEL_PLURAL if c != 1
+                 else _ARREST_TIER_LABEL_SINGULAR)[tier]
+        lines.append(f"{_ARREST_TIER_GLYPH[tier]} {c} {label}")
+
+    closest = _select_closest_arrests(
+        arrests, home_lat=home_lat, home_lon=home_lon,
+        radius_m=radius_m, max_items=2,
+    )
+    if closest:
+        lines.append("")
+        lines.append("Closest:")
+        for a in closest:
+            lines.append(_arrest_callout(a))
+    return lines
+
+
 def build_digest_text(
     *,
     display_name: str,
@@ -139,6 +262,8 @@ def build_digest_text(
     unsubscribe_url: str,
     crashes: list[dict] | None = None,
     new_crash_count: int = 0,
+    arrests: list[dict] | None = None,
+    have_arrest_today: bool = False,
     mpd_warning: bool = False,
 ) -> str:
     """Build the full digest message body."""
@@ -191,6 +316,18 @@ def build_digest_text(
     if crashes is not None:
         lines.extend(_crash_section_lines(
             crashes, radius_str, new_count=new_crash_count,
+        ))
+
+    # Arrests section. We render it whenever the caller passed an
+    # ``arrests`` list — even an empty list is signal (the report
+    # arrived, no arrests near you). The ``have_arrest_today`` flag
+    # disambiguates "0 because nothing happened" from "0 because the
+    # email hasn't arrived yet".
+    if arrests is not None:
+        lines.extend(_arrest_section_lines(
+            arrests, radius_str,
+            have_arrest_today=have_arrest_today,
+            home_lat=home_lat, home_lon=home_lon, radius_m=radius_m,
         ))
 
     lines.append("")
