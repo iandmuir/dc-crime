@@ -1,13 +1,13 @@
 """Resend Inbound — list + download attachments for a received email.
 
-Resend's `email.received` webhook payload includes attachment metadata
-(filename, content_type, content_disposition) but NOT the file bytes.
-To get the actual content we call the Attachments API:
+Resend's `email.received` webhook payload contains metadata only — no
+body, no headers, no attachment bytes. To get the actual file content
+we call the Attachments API:
 
-    GET https://api.resend.com/emails/received/{email_id}/attachments
+    GET https://api.resend.com/emails/receiving/{email_id}/attachments
 
-which returns each attachment with a short-lived `download_url`. We
-GET that URL to pull the bytes.
+which returns each attachment with a short-lived `download_url` (signed
+URL with an `expires_at`). We GET that URL to pull the bytes.
 
 The two functions here keep a clean split:
 
@@ -45,7 +45,7 @@ async def list_attachments(
     """
     if not api_key:
         raise ResendInboundError("Resend API key is not configured")
-    url = f"{API_BASE}/emails/received/{email_id}/attachments"
+    url = f"{API_BASE}/emails/receiving/{email_id}/attachments"
     headers = {"Authorization": f"Bearer {api_key}"}
     async with httpx.AsyncClient(timeout=timeout_s) as client:
         r = await client.get(url, headers=headers)
