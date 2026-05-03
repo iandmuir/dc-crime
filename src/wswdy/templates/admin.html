@@ -1,6 +1,23 @@
 {% extends "base.html" %}
 {% block title %}admin · WTFDC{% endblock %}
 {% block nav_meta %}admin{% endblock %}
+
+{# Render the district badge(s) for one subscriber. Primary district +
+   any extras get individual chips; missing district renders as a muted
+   "no district" warning so the admin can spot un-tagged accounts. #}
+{% macro district_badges(s) %}
+  {% if s.district %}
+    <span class="district-chip">{{ s.district }}</span>
+    {% if s.extra_districts %}
+      {% for d in s.extra_districts.split(',') if d.strip() %}
+        <span class="district-chip district-chip-extra">+{{ d.strip().upper() }}</span>
+      {% endfor %}
+    {% endif %}
+  {% else %}
+    <span class="district-chip district-chip-none">no district</span>
+  {% endif %}
+{% endmacro %}
+
 {% block content %}
 <main class="page fade-in" style="max-width: 980px;">
   <h1 class="display" style="font-size: 2rem; margin: 0 0 1.5rem;">Admin</h1>
@@ -21,7 +38,9 @@
         <div class="pending-info">
           <div><strong>{{ s.display_name }}</strong> · {{ s.preferred_channel }} ·
             <span class="mono" style="font-size:.85rem;">{{ s.email or s.phone }}</span></div>
-          <div style="font-size:.85rem; color:var(--ink-2);">{{ s.address_text }} ({{ s.radius_m }}m)</div>
+          <div style="font-size:.85rem; color:var(--ink-2);">
+            {{ s.address_text }} ({{ s.radius_m }}m) {{ district_badges(s) }}
+          </div>
           <div class="mono" style="font-size:.74rem; color: var(--ink-3); margin-top:.2rem;">{{ s.created_at | et }}</div>
         </div>
         <div class="pending-actions">
@@ -47,7 +66,9 @@
         <div class="pending-info">
           <div><strong>{{ s.display_name }}</strong> · {{ s.preferred_channel }} ·
             <span class="mono" style="font-size:.85rem;">{{ s.email or s.phone }}</span></div>
-          <div style="font-size:.85rem; color:var(--ink-2);">{{ s.address_text }} ({{ s.radius_m }}m)</div>
+          <div style="font-size:.85rem; color:var(--ink-2);">
+            {{ s.address_text }} ({{ s.radius_m }}m) {{ district_badges(s) }}
+          </div>
           <div class="mono" style="font-size:.74rem; color: var(--ink-3); margin-top:.2rem;">
             approved {{ (s.approved_at or s.created_at) | et }}{% if s.last_sent_at %} · last sent {{ s.last_sent_at | et }}{% endif %}
           </div>

@@ -1051,3 +1051,32 @@ body {
 .cov-light.cov-yellow { background: #f1c40f; }
 .cov-light.cov-red    { background: #e74c3c; }
 .cov-meta { color: var(--ink-3); font-size: 0.8rem; }
+
+/* District chips on the admin subscriber rows. Primary = filled, extras
+   = outlined (so the visual hierarchy matches "main district vs widened
+   coverage"), missing = warning red so un-tagged accounts pop out. */
+.district-chip {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  margin-left: 0.3rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--ink);
+  color: var(--surface);
+  font-family: var(--font-mono);
+  vertical-align: middle;
+}
+.district-chip-extra {
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid var(--border-2);
+}
+.district-chip-none {
+  background: transparent;
+  color: var(--t1);
+  border: 1px dashed var(--t1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
