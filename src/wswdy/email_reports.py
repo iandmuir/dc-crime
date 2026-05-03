@@ -53,12 +53,21 @@ from zoneinfo import ZoneInfo
 log = logging.getLogger(__name__)
 
 
-# MPD's date strings: "May 2, 2026 11:03:01 PM" or "May 2, 2026 4:38 PM".
-# The emails don't include timezone info, but the events occur in DC (ET),
-# so we parse as ET and convert to UTC for storage.
+# MPD's date strings come in two month-name styles:
+#
+#   "May 2, 2026 4:38:00 PM"         (or "May 2, 2026 4:38 PM")
+#   "Apr 30, 2026 7:00:00 AM"        (or "Apr 30, 2026 7:00 AM")
+#
+# The 3-letter abbreviated form (Apr/May/Jun/...) is what MPD's templates
+# generally produce. We list the full-name variants too as a defensive
+# fallback in case a future template change goes back to spelled-out
+# months. The emails don't carry timezone info, so we parse as ET (where
+# the events happen) and convert to UTC for storage.
 _DATE_FORMATS = (
+    "%b %d, %Y %I:%M:%S %p",
+    "%b %d, %Y %I:%M %p",
     "%B %d, %Y %I:%M:%S %p",
-    "%B %d, %Y %I:%M %p",  # some fields might omit seconds
+    "%B %d, %Y %I:%M %p",
 )
 
 
