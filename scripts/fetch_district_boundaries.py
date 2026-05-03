@@ -23,20 +23,19 @@ from pathlib import Path
 
 # Layer URLs to try, in priority order. The MPD MapServer occasionally
 # renumbers layers, so we try several known IDs before giving up.
+# Verified 2026-05-03: layer 9 = "Police Districts (MPD)" on the
+# Public_Safety_WebMercator service.
 _CANDIDATES = [
-    # Public_Safety_WebMercator MapServer — typical "Police Districts" layer
+    "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/"
+    "Public_Safety_WebMercator/MapServer/9/query"
+    "?where=1%3D1&outFields=*&f=geojson&outSR=4326",
+    # Defensive fallbacks in case DC ever renumbers the layer.
     "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/"
     "Public_Safety_WebMercator/MapServer/16/query"
     "?where=1%3D1&outFields=*&f=geojson&outSR=4326",
     "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/"
     "Public_Safety_WebMercator/MapServer/19/query"
     "?where=1%3D1&outFields=*&f=geojson&outSR=4326",
-    "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/"
-    "Public_Safety_WebMercator/MapServer/27/query"
-    "?where=1%3D1&outFields=*&f=geojson&outSR=4326",
-    # opendata.arcgis.com export of the same dataset
-    "https://opendata.arcgis.com/datasets/"
-    "9e5c2f2b3e3b4b4f9b5c2f2b3e3b4b4f_0.geojson",
 ]
 
 
