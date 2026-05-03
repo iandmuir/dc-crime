@@ -198,10 +198,15 @@ function crimePopupHtml(p) {
   if (p.weapon) {
     rows.push(`<div class="pop-row"><span class="k">weapon</span><span class="v">${escapeHtml(p.weapon)}</span></div>`);
   }
-  // PDF-only LOCATION enum (Restaurant, Residence/Home, etc). Only present
-  // when that district's daily LISTSERV PDF has been ingested.
+  // LISTSERV-only LOCATION enum (Restaurant, Residence/Home, etc). Only
+  // present when that district's daily crime email has been ingested.
   if (p.location) {
     rows.push(`<div class="pop-row"><span class="k">location</span><span class="v">${escapeHtml(p.location)}</span></div>`);
+  }
+  // CCN — useful for subscribers who want to request the full incident
+  // report directly from MPD (FOIA / public-records request).
+  if (p.ccn) {
+    rows.push(`<div class="pop-row"><span class="k">CCN</span><span class="v"><code>${escapeHtml(p.ccn)}</code></span></div>`);
   }
   return rows.join('');
 }
