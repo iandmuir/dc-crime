@@ -32,8 +32,15 @@ import pdfplumber
 
 log = logging.getLogger(__name__)
 
-# Captures the district code (1D-7D) from the header line.
-_DISTRICT_RE = re.compile(r"\bin\s+the\s+(\d+D)\s+District\b", re.IGNORECASE)
+# Captures the district code (1D-7D) from the report's title line, which
+# always reads "recent crimes/arrests reported in the XD District". The
+# tighter anchor protects against false positives elsewhere in the PDF —
+# e.g. comparison stats, footer legend text, or a "see the 7D District
+# for…" cross-reference — which would otherwise hijack district detection.
+_DISTRICT_RE = re.compile(
+    r"recent\s+(?:crimes|arrests)\s+reported\s+in\s+the\s+(\d+D)\s+District",
+    re.IGNORECASE,
+)
 
 
 @dataclass
