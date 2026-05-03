@@ -62,6 +62,9 @@ def build_scheduler(
         id="send_fallback",
     )
     if inbound_fn is not None:
-        s.add_job(inbound_fn, IntervalTrigger(minutes=5), id="inbound")
+        # Every minute — the scan is cheap (a couple of SQL queries) and
+        # subscribers expect their STOP reply to take effect immediately,
+        # not after a five-minute wait.
+        s.add_job(inbound_fn, IntervalTrigger(minutes=1), id="inbound")
     s.add_job(health_fn, CronTrigger(hour=23, minute=0, timezone=ET), id="health")
     return s
