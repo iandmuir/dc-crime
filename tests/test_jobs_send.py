@@ -180,13 +180,27 @@ def test_feed_has_yesterdays_data_ignores_single_straggler(db):
     assert not feed_has_yesterdays_data(db, now_iso="2026-04-29T13:00:00+00:00")
 
 
-def _seed_listserv_today(db, kinds=("crime", "arrest"), district="2D"):
-    """Helper: seed today's pdf_ingest_log so the readiness check passes."""
+def _seed_listserv_today(
+    db, *, now_iso: str, kinds=("crime", "arrest"), district="2D",
+):
+    """Helper: seed today's pdf_ingest_log so the readiness check passes.
+
+    Writes ``ingested_at`` in SQLite's CURRENT_TIMESTAMP format (space
+    separator, no offset) so the production WHERE-clause cutoff string
+    sorts correctly against it. The test's mocked ``now_iso`` is passed
+    in so the seeded timestamp lives on the same calendar day.
+    """
+    # Match the format wswdy.jobs.send.listserv_reports_in_today builds
+    # for its cutoff comparison.
+    from datetime import datetime as _dt
+    naive = _dt.fromisoformat(now_iso.replace("Z", "+00:00"))
+    ts = naive.strftime("%Y-%m-%d %H:%M:%S")
     for kind in kinds:
         db.execute(
-            "INSERT INTO pdf_ingest_log (district, kind, source_file, records) "
-            "VALUES (?, ?, ?, ?)",
-            (district, kind, "test", 1),
+            "INSERT INTO pdf_ingest_log "
+            "(district, kind, source_file, records, ingested_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (district, kind, "test", 1, ts),
         )
     db.commit()
 
@@ -238,7 +252,7 @@ async def test_run_send_if_ready_fires_when_everything_in(db, tmp_path):
     _seed_subscriber(db, "s1", channel="email")
     for i in range(6):
         _seed_crime(db, ccn=f"Y{i}", when_iso=f"2026-04-28T{10+i:02d}:00:00Z")
-    _seed_listserv_today(db)
+    _seed_listserv_today(db, now_iso="2026-04-29T13:00:00+00:00")
     email = FakeNotifier()
     wa = FakeNotifier()
     alerter = AdminAlerter(db=db, email=email, admin_email="admin@x",
@@ -276,7 +290,7 @@ async def test_run_send_if_ready_skips_if_already_sent(db, tmp_path):
     _seed_subscriber(db, "s1", channel="email")
     for i in range(6):
         _seed_crime(db, ccn=f"Y{i}", when_iso=f"2026-04-28T{10+i:02d}:00:00Z")
-    _seed_listserv_today(db)
+    _seed_listserv_today(db, now_iso="2026-04-29T13:00:00+00:00")
     email = FakeNotifier()
     wa = FakeNotifier()
     alerter = AdminAlerter(db=db, email=email, admin_email="admin@x",
