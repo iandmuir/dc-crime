@@ -104,6 +104,33 @@ def test_digest_zero_crashes_renders_quiet_section():
     assert "last 7 days" in text
 
 
+def test_digest_announces_newly_reported_crashes_in_header():
+    """When new_crash_count > 0, the crash header should call out how
+    many crashes DC just published — the only way subscribers can tell
+    when fresh data lands, given the 3-5 day publishing lag."""
+    crashes = [_crash(id="A", major_injury=1), _crash(id="B")]
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=[],
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        crashes=crashes, new_crash_count=2,
+    )
+    assert "2 newly reported" in text
+
+
+def test_digest_omits_newly_reported_when_count_is_zero():
+    """No newly reported text when DC hasn't published anything new —
+    keeps quiet days quiet."""
+    crashes = [_crash(id="A")]
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=[],
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        crashes=crashes, new_crash_count=0,
+    )
+    assert "newly reported" not in text
+
+
 def test_digest_renders_crash_tier_counts():
     crashes = [
         _crash(id="A", fatal=1),

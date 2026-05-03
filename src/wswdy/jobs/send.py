@@ -72,6 +72,11 @@ async def run_daily_sends(
     # Crashes use a rolling 7-day window because DC's crash feed lags 3-5
     # days behind real time — a 24h window would almost always be empty.
     crash_start_iso = (now_dt - timedelta(days=7)).isoformat(timespec="seconds")
+    # Anything fetched into our DB in the past day counts as "newly
+    # reported" for the digest header. Slight overlap is fine — better
+    # to occasionally call out yesterday's late-evening fetches than to
+    # miss a fresh batch.
+    new_crash_cutoff_iso = (now_dt - timedelta(hours=24)).isoformat(timespec="seconds")
 
     if stagger:
         random.shuffle(actives)
@@ -92,6 +97,14 @@ async def run_daily_sends(
             db, sub["lat"], sub["lon"], sub["radius_m"],
             start=crash_start_iso, end=end_iso,
         )
+        # "Newly reported" = crashes that landed in our DB since the
+        # previous daily fetch. Crash data has a 3-5 day publishing lag,
+        # so this is the most actionable signal — without it the digest
+        # looks identical day-to-day even when DC just published a batch.
+        new_crash_count = sum(
+            1 for c in crashes
+            if c.get("fetched_at") and c["fetched_at"] >= new_crash_cutoff_iso
+        )
 
         map_token = sign(hmac_secret, purpose="map", subscriber_id=sub["id"])
         unsub_token = sign(hmac_secret, purpose="unsubscribe", subscriber_id=sub["id"])
@@ -101,6 +114,7 @@ async def run_daily_sends(
         text = build_digest_text(
             display_name=sub["display_name"], radius_m=sub["radius_m"],
             crimes=crimes, crashes=crashes,
+            new_crash_count=new_crash_count,
             home_lat=sub["lat"], home_lon=sub["lon"],
             map_url=map_url, unsubscribe_url=unsub_url,
             mpd_warning=mpd_warning,

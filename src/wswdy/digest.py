@@ -91,9 +91,18 @@ def _crash_callout_lines(crashes: list[dict]) -> list[str]:
     return callouts[:3]  # cap so the digest doesn't balloon
 
 
-def _crash_section_lines(crashes: list[dict], radius_str: str) -> list[str]:
+def _crash_section_lines(
+    crashes: list[dict], radius_str: str, *, new_count: int = 0,
+) -> list[str]:
     """Render the crashes block. Returns [] if we should omit the section
-    (we render even when zero so it reads like a quiet weather report)."""
+    (we render even when zero so it reads like a quiet weather report).
+
+    ``new_count`` is the number of crashes added to our DB since the
+    previous daily fetch. Surfaced inline in the header because crash
+    data has a 3-5 day publishing lag — without this number, every day's
+    digest looks identical and subscribers can't tell when DC has
+    published a fresh batch.
+    """
     n = len(crashes)
     lines: list[str] = []
     lines.append("")
@@ -104,7 +113,8 @@ def _crash_section_lines(crashes: list[dict], radius_str: str) -> list[str]:
         return lines
 
     counts = _summarize_crashes_by_tier(crashes)
-    lines.append(f"🚦 Crashes within {radius_str} (last 7 days):")
+    suffix = f", {new_count} newly reported" if new_count > 0 else ""
+    lines.append(f"🚦 Crashes within {radius_str} (last 7 days{suffix}):")
     for tier in (1, 2, 3, 4):
         c = counts[tier]
         if c == 0:
@@ -128,6 +138,7 @@ def build_digest_text(
     map_url: str,
     unsubscribe_url: str,
     crashes: list[dict] | None = None,
+    new_crash_count: int = 0,
     mpd_warning: bool = False,
 ) -> str:
     """Build the full digest message body."""
@@ -178,7 +189,9 @@ def build_digest_text(
     # because the absence is reassuring (and the section's existence is
     # data — readers know the feed was checked).
     if crashes is not None:
-        lines.extend(_crash_section_lines(crashes, radius_str))
+        lines.extend(_crash_section_lines(
+            crashes, radius_str, new_count=new_crash_count,
+        ))
 
     lines.append("")
     lines.append(f"🗺️ Map: {map_url}")
