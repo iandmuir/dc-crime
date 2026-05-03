@@ -116,8 +116,16 @@ async def signup_submit(
     # raw E.164 or 10-digit-US strings as a fallback.
     if preferred_channel == "whatsapp":
         digits = "".join(c for c in (phone or "") if c.isdigit())
-        if phone_country and phone_country.startswith("+") and digits:
-            combined = phone_country + digits
+        # Defense in depth: the form's JS pins a "+" on phone_country,
+        # but a user with devtools can still POST anything. Coerce it
+        # back into "+<digits>" form here so the country code never
+        # silently disappears (which would default the recipient to a
+        # US number when they're not in the US).
+        cc = (phone_country or "+1").strip()
+        cc_digits = "".join(c for c in cc if c.isdigit())
+        cc = "+" + cc_digits if cc_digits else ""
+        if cc and digits:
+            combined = cc + digits
         else:
             combined = phone
         try:
