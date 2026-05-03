@@ -47,10 +47,37 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-
-from wswdy.pdf_reports import _parse_dt  # reuse the ET → ISO UTC date helper
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 log = logging.getLogger(__name__)
+
+
+# MPD's date strings: "May 2, 2026 11:03:01 PM" or "May 2, 2026 4:38 PM".
+# The emails don't include timezone info, but the events occur in DC (ET),
+# so we parse as ET and convert to UTC for storage.
+_DATE_FORMATS = (
+    "%B %d, %Y %I:%M:%S %p",
+    "%B %d, %Y %I:%M %p",  # some fields might omit seconds
+)
+
+
+def _parse_dt(s: str | None) -> str | None:
+    """Parse an MPD date string in ET, return ISO UTC string."""
+    if not s:
+        return None
+    s = s.strip()
+    if not s:
+        return None
+    et = ZoneInfo("America/New_York")
+    for fmt in _DATE_FORMATS:
+        try:
+            naive = datetime.strptime(s, fmt)
+            return naive.replace(tzinfo=et).astimezone(UTC).isoformat(timespec="seconds")
+        except ValueError:
+            continue
+    log.debug("could not parse MPD date %r", s)
+    return None
 
 
 # Subject patterns ----------------------------------------------------------

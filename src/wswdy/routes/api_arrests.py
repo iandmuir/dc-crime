@@ -2,9 +2,9 @@
 
 Mirrors api_crimes.py / api_crashes.py — same auth (subscriber + map token)
 and the same window choices (24h / 7d / 30d). Arrest data comes from MPD's
-daily LISTSERV PDFs (parsed by wswdy.pdf_reports → wswdy.jobs.pdf_ingest)
-rather than an API, so coverage depends on which districts the admin has
-ingested today. Arrests with no successful geocode are excluded by the
+daily LISTSERV emails (parsed by wswdy.email_reports → wswdy.jobs.email_ingest)
+rather than an API, so coverage depends on which districts have shipped a
+report today. Arrests with no successful geocode are excluded by the
 underlying repo (lat IS NULL filter).
 
 Each feature carries the offender's name, age, gender, offense, and
