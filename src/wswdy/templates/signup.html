@@ -52,9 +52,13 @@
              placeholder="jane@example.com" />
     </div>
     <div class="field" id="phone-field" hidden>
-      <label class="field-label" for="phone">Phone (E.164)</label>
+      <label class="field-label" for="phone">WhatsApp number</label>
       <input id="phone" name="phone" class="field-input" type="tel"
-             placeholder="+1 202 555 0123" />
+             placeholder="+1 202 555 0123"
+             autocomplete="tel"
+             pattern="^\s*(\+\d{8,15}|1?\d{10})\s*$"
+             title="Include the country code, e.g. +1 for US numbers" />
+      <p class="field-hint">Include the country code — e.g. <strong>+1</strong> for US numbers.</p>
     </div>
 
     <div class="field">

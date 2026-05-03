@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from wswdy.clients.maptiler import GeocodeError, geocode_address
 from wswdy.geo import in_dc_bbox
 from wswdy.ids import new_subscriber_id
+from wswdy.phone import InvalidPhoneNumber, normalize_phone
 from wswdy.ratelimit import RateLimiter
 from wswdy.repos import subscribers as subs_repo
 from wswdy.tokens import sign
@@ -102,6 +103,20 @@ async def signup_submit(
         return Response(status_code=400, content="phone required")
     if not (200 <= radius_m <= 2000):
         return Response(status_code=400, content="radius out of range")
+
+    # WhatsApp delivery silently fails when the number isn't E.164. Force
+    # normalization here so a 10-digit US entry like "9174945082" becomes
+    # "+19174945082" before we ever record it in the DB.
+    if preferred_channel == "whatsapp":
+        try:
+            phone = normalize_phone(phone)
+        except InvalidPhoneNumber as e:
+            return templates.TemplateResponse(
+                request,
+                "signup.html",
+                {"error": f"invalid phone number: {e}"},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
     sid = new_subscriber_id()
     subs_repo.insert_pending(

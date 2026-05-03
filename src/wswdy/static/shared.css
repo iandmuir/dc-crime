@@ -213,6 +213,13 @@ body {
 
 /* ----- form fields ----- */
 .field { margin-bottom: 1.5rem; }
+.field-hint {
+  font-size: 0.74rem;
+  color: var(--ink-3);
+  margin: 0.35rem 0 0;
+  line-height: 1.4;
+}
+.field-hint strong { color: var(--ink); font-weight: 600; }
 .field-label {
   display: block;
   font-size: 0.78rem;
