@@ -207,6 +207,24 @@ def test_parse_arrest_email_extracts_full_arrestee_record():
     assert a.officer == "Doe 12345"
 
 
+def test_parse_arrest_email_handles_abbreviated_month():
+    """Regression: MPD's templates use 3-letter month abbreviations
+    ("Apr 30, ..."). Earlier we only had %B (full month) format strings,
+    which silently dropped dates for every month except May (since 'May'
+    is identical in both forms). Both forms must round-trip."""
+    body_apr = ARREST_BODY_3D.replace(
+        "May 2, 2026 4:38:00 PM",
+        "Apr 30, 2026 7:00:00 AM",
+    )
+    out = parse_arrest_email(
+        subject="MPD: Preliminary Arrest Report for 3D",
+        text_body=body_apr,
+    )
+    assert out[0].arrest_dt is not None
+    # 7 AM EDT == 11:00 UTC
+    assert out[0].arrest_dt.startswith("2026-04-30T11:00:00")
+
+
 def test_parse_arrest_email_captures_offense():
     """Regression: 'Offense' (arrest label) collided case-insensitively
     with 'OFFENSE' (crime label), causing the arrest offense to be
