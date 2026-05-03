@@ -8,6 +8,7 @@ from wswdy.clients.resend_inbound import (
     download_attachment,
     get_received_email,
     list_attachments,
+    list_received_emails,
 )
 
 
@@ -109,3 +110,28 @@ async def test_get_received_email_raises_on_http_error():
 async def test_get_received_email_requires_api_key():
     with pytest.raises(ResendInboundError, match="not configured"):
         await get_received_email("em_42", api_key="")
+
+
+@pytest.mark.asyncio
+async def test_list_received_emails_returns_data_and_has_more():
+    payload = {
+        "object": "list",
+        "has_more": True,
+        "data": [
+            {"id": "em_1", "subject": "MPD: Preliminary Crime Report for 2D"},
+            {"id": "em_2", "subject": "MPD: Preliminary Arrest Report for 2D"},
+        ],
+    }
+    with patch("wswdy.clients.resend_inbound.httpx.AsyncClient",
+               return_value=_mock_client([_resp(200, json=payload)])):
+        out = await list_received_emails(api_key="k", limit=50)
+    assert out["has_more"] is True
+    assert [e["id"] for e in out["data"]] == ["em_1", "em_2"]
+
+
+@pytest.mark.asyncio
+async def test_list_received_emails_rejects_both_after_and_before():
+    with pytest.raises(ResendInboundError, match="only one"):
+        await list_received_emails(
+            api_key="k", after="em_1", before="em_2",
+        )
