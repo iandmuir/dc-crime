@@ -76,9 +76,9 @@ async def review_approve(request: Request, token: str, background_tasks: Backgro
     text = (
         f"Hi, {sub['display_name']} — you're confirmed. ✓\n\n"
         f"Each morning we'll tell you WTF went down near you yesterday — "
-        f"crimes and crashes within {sub['radius_m']:,}m of your home, drawn "
-        f"from public DC data. First briefing arrives the morning after DC's "
-        f"incident data publishes.\n\n"
+        f"crimes, crashes, and arrests within {sub['radius_m']:,}m of your "
+        f"home, drawn from public DC data. First briefing arrives the "
+        f"morning after DC's incident data publishes.\n\n"
         f"Reply STOP to unsubscribe."
     )
     background_tasks.add_task(
