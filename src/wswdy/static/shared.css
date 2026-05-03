@@ -240,20 +240,21 @@ body {
 }
 .phone-country {
   flex: 0 0 auto;
+  width: 4rem;
   border: none;
   border-right: 1px solid var(--border-2);
   background: var(--surface-2);
   padding: 0 0.65rem;
   font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--ink);
-  cursor: pointer;
-  /* Constrain the width so the selected option stays compact even when
-     the option list itself contains long country names. */
-  max-width: 8.5rem;
+  text-align: center;
 }
-.phone-country:focus { outline: none; }
+.phone-country:focus {
+  outline: none;
+  background: var(--surface);
+}
 .phone-input-group .phone-input-national {
   border: none;
   border-radius: 0;

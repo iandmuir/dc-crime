@@ -54,53 +54,14 @@
     <div class="field" id="phone-field" hidden>
       <label class="field-label" for="phone">WhatsApp number</label>
       <div class="phone-input-group">
-        <select id="phone_country" name="phone_country"
-                class="phone-country" autocomplete="tel-country-code"
-                aria-label="Country code">
-          {# Default to US — DC service, most subscribers are local —
-             but users can pick another country to fix the country
-             code at the source rather than relying on free-form input. #}
-          <option value="+1" selected>🇺🇸 US +1</option>
-          <option value="+1">🇨🇦 Canada +1</option>
-          <option value="+44">🇬🇧 UK +44</option>
-          <option value="+33">🇫🇷 France +33</option>
-          <option value="+49">🇩🇪 Germany +49</option>
-          <option value="+34">🇪🇸 Spain +34</option>
-          <option value="+39">🇮🇹 Italy +39</option>
-          <option value="+31">🇳🇱 Netherlands +31</option>
-          <option value="+46">🇸🇪 Sweden +46</option>
-          <option value="+47">🇳🇴 Norway +47</option>
-          <option value="+45">🇩🇰 Denmark +45</option>
-          <option value="+353">🇮🇪 Ireland +353</option>
-          <option value="+41">🇨🇭 Switzerland +41</option>
-          <option value="+43">🇦🇹 Austria +43</option>
-          <option value="+32">🇧🇪 Belgium +32</option>
-          <option value="+351">🇵🇹 Portugal +351</option>
-          <option value="+30">🇬🇷 Greece +30</option>
-          <option value="+90">🇹🇷 Turkey +90</option>
-          <option value="+972">🇮🇱 Israel +972</option>
-          <option value="+91">🇮🇳 India +91</option>
-          <option value="+86">🇨🇳 China +86</option>
-          <option value="+81">🇯🇵 Japan +81</option>
-          <option value="+82">🇰🇷 South Korea +82</option>
-          <option value="+852">🇭🇰 Hong Kong +852</option>
-          <option value="+65">🇸🇬 Singapore +65</option>
-          <option value="+61">🇦🇺 Australia +61</option>
-          <option value="+64">🇳🇿 New Zealand +64</option>
-          <option value="+27">🇿🇦 South Africa +27</option>
-          <option value="+234">🇳🇬 Nigeria +234</option>
-          <option value="+254">🇰🇪 Kenya +254</option>
-          <option value="+20">🇪🇬 Egypt +20</option>
-          <option value="+971">🇦🇪 UAE +971</option>
-          <option value="+966">🇸🇦 Saudi Arabia +966</option>
-          <option value="+52">🇲🇽 Mexico +52</option>
-          <option value="+55">🇧🇷 Brazil +55</option>
-          <option value="+54">🇦🇷 Argentina +54</option>
-          <option value="+57">🇨🇴 Colombia +57</option>
-          <option value="+56">🇨🇱 Chile +56</option>
-          <option value="+51">🇵🇪 Peru +51</option>
-          <option value="+58">🇻🇪 Venezuela +58</option>
-        </select>
+        <input id="phone_country" name="phone_country"
+               class="phone-country" autocomplete="tel-country-code"
+               aria-label="Country code"
+               type="text" inputmode="tel"
+               value="+1"
+               pattern="^\+\d{1,3}$"
+               title="Country code with +, e.g. +1 for US"
+               maxlength="4" />
         <input id="phone" name="phone" class="field-input phone-input-national"
                type="tel" inputmode="numeric" autocomplete="tel-national"
                placeholder="202 555 0123"
@@ -108,7 +69,9 @@
                title="Phone number digits — we'll combine with the country code"
                maxlength="20" />
       </div>
-      <p class="field-hint">Pick your country, then enter the rest of your number.</p>
+      <p class="field-hint">
+        Country code (default <strong>+1</strong> for US) and the rest of your number.
+      </p>
     </div>
 
     <div class="field">
