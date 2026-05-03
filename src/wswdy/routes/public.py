@@ -25,16 +25,33 @@ def _client_ip(request: Request) -> str:
 
 
 async def _notify_admin_of_signup(
-    *, email_notifier, admin_email: str, subject: str, body: str,
+    *, email_notifier, whatsapp_notifier, admin_email: str,
+    admin_whatsapp_number: str, subject: str, email_body: str,
+    whatsapp_body: str,
 ) -> None:
-    """Send the admin notification, swallowing any errors so the user-facing
-    redirect already happened by the time SMTP is attempted."""
+    """Send the admin a notification via every configured channel.
+
+    WhatsApp gets a short, mobile-friendly summary with the review link;
+    email gets the full detail block. Both run independently so a
+    transient failure in one channel doesn't block the other. We
+    deliberately swallow errors — the user has already been redirected
+    to the thanks page by the time this runs in the background.
+    """
     try:
         await email_notifier.send(
-            recipient=admin_email, subject=subject, text=body, image_path=None,
+            recipient=admin_email, subject=subject,
+            text=email_body, image_path=None,
         )
     except Exception:
-        logger.exception("admin signup notification failed")
+        logger.exception("admin signup notification (email) failed")
+    if admin_whatsapp_number:
+        try:
+            await whatsapp_notifier.send(
+                recipient=admin_whatsapp_number, subject=subject,
+                text=whatsapp_body, image_path=None,
+            )
+        except Exception:
+            logger.exception("admin signup notification (whatsapp) failed")
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -168,20 +185,35 @@ async def signup_submit(
         ttl_seconds=7 * 86400,
     )
     review_url = f"{settings.base_url}/a/{token}"
-    body = (
+    contact = email or phone
+    district_str = f", {district}" if district else ""
+
+    email_body = (
         f"New WTFDC signup from {display_name}.\n\n"
-        f"Channel: {preferred_channel} ({email or phone})\n"
+        f"Channel: {preferred_channel} ({contact})\n"
         f"Address: {place['display']}\n"
         f"Coords:  {place['lat']:.4f}, {place['lon']:.4f}\n"
-        f"Radius:  {radius_m}m\n\n"
+        f"Radius:  {radius_m}m{district_str}\n\n"
         f"Approve or reject:\n{review_url}\n"
+    )
+    # WhatsApp body: short and mobile-scannable. The review URL goes on
+    # its own line so WhatsApp's link preview can render it as a tap
+    # target without competing with the rest of the text.
+    whatsapp_body = (
+        f"🆕 New WTFDC signup\n\n"
+        f"{display_name} · {preferred_channel} · {contact}\n"
+        f"{place['display']} ({radius_m:,}m{district_str})\n\n"
+        f"Tap to review:\n{review_url}"
     )
     background_tasks.add_task(
         _notify_admin_of_signup,
         email_notifier=request.app.state.email_notifier,
+        whatsapp_notifier=request.app.state.whatsapp_notifier,
         admin_email=settings.admin_email,
+        admin_whatsapp_number=settings.admin_whatsapp_number,
         subject=f"[WTFDC] new signup: {display_name}",
-        body=body,
+        email_body=email_body,
+        whatsapp_body=whatsapp_body,
     )
 
     return RedirectResponse(url=f"/signup/thanks?ch={preferred_channel}", status_code=303)

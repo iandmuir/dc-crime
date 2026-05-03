@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     smtp_pass: str = ""
     smtp_from: str = "WTFDC <noreply@iandmuir.com>"
     admin_email: str = "iandmuir@gmail.com"
+    # Admin's personal WhatsApp number — gets a ping for new signups so
+    # approval can happen straight from the phone (tap the review link
+    # in WhatsApp → /a/{token} landing → Approve/Reject). Empty string
+    # disables the WhatsApp notification path; the email path always
+    # runs as a backup. E.164 format with leading +.
+    admin_whatsapp_number: str = Field("", alias="ADMIN_WHATSAPP_NUMBER")
 
     whatsapp_mcp_url: str = ""
     whatsapp_mcp_token: str = ""
