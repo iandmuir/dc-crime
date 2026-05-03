@@ -102,15 +102,30 @@ _BODY_DISTRICT_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Markers that terminate record parsing. Crime reports end with the
-# "KEY:" legend; arrest reports go straight from the last record into
-# the "Reminder:" / "Disclaimer:" boilerplate. Anything matching one of
-# these prefixes ends the record loop so footer text never gets glued
-# onto the previous field via the continuation-line logic.
-_FOOTER_RE = re.compile(
-    r"^(KEY|Reminder|Disclaimer|Please\s+Note)\s*[:\-]",
-    re.IGNORECASE,
-)
+# "KEY:" on its own line marks the legend footer of crime reports — stop
+# parsing there. Arrest reports don't have a KEY footer at all; they
+# embed "Reminder:", "Disclaimer:", and "Please Note:" prose paragraphs
+# IN THE MIDDLE of records (between the day's first three arrests and
+# the rest). Those mid-email paragraphs are NOT terminators — we just
+# silently ignore lines that don't match a known field label, and rely
+# on _CONTINUABLE_FIELDS below to keep the continuation-line logic
+# from gluing them onto the previous record.
+_FOOTER_RE = re.compile(r"^KEY\s*[:\-]", re.IGNORECASE)
+
+
+# Only these fields ever wrap onto multiple lines in MPD's emails:
+#
+#   arrest_location: street / city+state+zip / country (always 3 lines)
+#   block:           occasionally wraps for very long block names
+#   offense:         long parenthetical offenses wrap mid-sentence
+#                    ("...Place of\nBusiness)")
+#   method:          subcategory text occasionally wraps
+#
+# Other fields (officer, age, gender, dates, ...) are always single-line.
+# Restricting continuation to this set is what stops the "Reminder:" /
+# "Disclaimer:" boilerplate paragraphs from being glued onto the last
+# record's officer.
+_CONTINUABLE_FIELDS = frozenset({"arrest_location", "block", "offense", "method"})
 
 
 # Field labels (in body) keyed by canonical field name. Order matters for
@@ -253,14 +268,17 @@ def _iter_record_blocks(
         key, value = _split_label(line, fields=fields)
         if key:
             current[key] = value
-            last_key = key
+            # Only persist last_key for fields that legitimately wrap.
+            # After a single-line field, last_key resets so any stray
+            # non-label line that follows (e.g. the "Reminder:" prose
+            # paragraph MPD embeds mid-email) gets ignored instead of
+            # appended.
+            last_key = key if key in _CONTINUABLE_FIELDS else None
         elif last_key:
-            # Continuation line: MPD's email client soft-wraps long values
-            # at ~70 chars, and the multi-line ``Arrest Location`` field
-            # always spans street / city / state lines. Append to the
-            # previous label's value so we don't silently drop the rest.
+            # Continuation line for a known multi-line field.
             current[last_key] = (current[last_key] + " " + line).strip()
-        # Lines before the first label in a record (rare) are ignored.
+        # Other non-label lines (boilerplate paragraphs between record
+        # batches, image alt-text, etc) are silently ignored.
 
     if current:
         blocks.append(current)

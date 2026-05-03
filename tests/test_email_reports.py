@@ -47,12 +47,16 @@ PSA - The Police District ...
 """
 
 
-# Sample arrest body — modeled on the real MPD email layout. Crucially:
-# arrest emails do NOT have a "KEY:" legend footer; they go straight from
-# the last record into the "Reminder:" / "Disclaimer:" boilerplate plus
-# the GovDelivery email signature. The parser must stop at one of those
-# footer markers or it will glue the boilerplate onto the last record's
-# last field via the continuation-line logic.
+# Sample arrest body — modeled on a real MPD email. Two structural
+# quirks that make this format hostile to a naive parser:
+#
+#   1. NO "KEY:" footer — arrest emails just trail off into a
+#      GovDelivery email signature.
+#   2. The "Reminder:" / "Disclaimer:" / "Please Note:" boilerplate is
+#      embedded IN THE MIDDLE of records, between the first batch of
+#      arrests and the rest. The parser must keep going past it.
+#
+# A correct parser yields THREE records here, not just the first two.
 ARREST_BODY_3D = """\
 [image: MPD Arrest Blotter - 3D]
 
@@ -60,7 +64,9 @@ This report contains information about recent arrests reported in the 3D
  District.
 Arrest Number# 022611844
 Arrest Date & Time May 2, 2026 4:38:00 PM
-Arrest Location 5028 BELT ROAD NW WASHINGTON, DC 20016
+Arrest Location 5028 BELT ROAD NW
+WASHINGTON, DC 20016
+UNITED STATES
 Arrest Location PSA 202
 Offender Last Name Slater
 Offender First Name Alexander
@@ -71,7 +77,9 @@ Felony/Misdemeanor FELONY
 Officer Doe 12345
 Arrest Number# 022611855
 Arrest Date & Time May 2, 2026 5:10:00 PM
-Arrest Location 1100 BLOCK OF NEW YORK AVE NW WASHINGTON DC
+Arrest Location 1100 NEW YORK AVE NW
+WASHINGTON, DC 20002
+UNITED STATES
 Arrest Location PSA 209
 Offender Last Name Marzi
 Offender First Name Sadaf
@@ -80,9 +88,26 @@ Age 25
 Offense Simple Assault
 Felony/Misdemeanor MISDEMEANOR
 Officer Smith 99999
-Reminder: Arrests do not constitute guilt in the criminal justice system.
-Disclaimer: This listing may contain duplicate records.
+
+Reminder:  Arrests do not constitute guilt in the criminal justice system.
+Subjects will have an opportunity to defend these charges a court of law.
+Disclaimer: This listing may contain duplicate records which may later be
+cleaned by staff review.
 Please Note: On 1/10/2019, MPD realigned police district boundaries.
+Arrest Number# 022611888
+Arrest Date & Time May 2, 2026 7:30:00 PM
+Arrest Location 200 K STREET NW
+WASHINGTON, DC 20001
+UNITED STATES
+Arrest Location PSA 207
+Offender Last Name Doe
+Offender First Name Jane
+Gender Female
+Age 30
+Offense Bench Warrant
+Felony/Misdemeanor FELONY
+Officer Jones 13579
+
 *Metropolitan Police Department*
 Office of Communications
 """
@@ -183,12 +208,15 @@ def test_parse_crime_email_extracts_pdf_only_location_field():
 
 # ---- arrest parser ----
 
-def test_parse_arrest_email_returns_two_records():
+def test_parse_arrest_email_returns_all_records_across_boilerplate():
+    """Boilerplate appears mid-email — must NOT terminate parsing."""
     out = parse_arrest_email(
         subject="MPD: Preliminary Arrest Report for 3D",
         text_body=ARREST_BODY_3D,
     )
-    assert [r.arrest_number for r in out] == ["022611844", "022611855"]
+    assert [r.arrest_number for r in out] == [
+        "022611844", "022611855", "022611888",
+    ]
 
 
 def test_parse_arrest_email_tags_district_from_subject():
@@ -197,6 +225,23 @@ def test_parse_arrest_email_tags_district_from_subject():
         text_body=ARREST_BODY_3D,
     )
     assert all(r.district == "3D" for r in out)
+
+
+def test_parse_arrest_email_does_not_pollute_officer_with_boilerplate():
+    """Regression: the 'Reminder:' / 'Disclaimer:' / 'Please Note:'
+    paragraphs sit BETWEEN arrest records (not after them). A bad
+    continuation rule could append all that prose to the previous
+    record's officer field — so explicitly guard against it."""
+    out = parse_arrest_email(
+        subject="MPD: Preliminary Arrest Report for 3D",
+        text_body=ARREST_BODY_3D,
+    )
+    for r in out:
+        assert r.officer is not None
+        assert "Reminder" not in r.officer
+        assert "Disclaimer" not in r.officer
+        assert "Please Note" not in r.officer
+    assert out[1].officer == "Smith 99999"
 
 
 def test_parse_arrest_email_extracts_full_arrestee_record():
@@ -212,21 +257,21 @@ def test_parse_arrest_email_extracts_full_arrestee_record():
     assert a.officer == "Doe 12345"
 
 
-def test_parse_arrest_email_joins_multi_line_address():
-    """Regression: Arrest Location is always multi-line in the email
-    (street, then city/state/zip, then country). The parser should
-    join continuation lines into a single value, not drop them."""
-    body = ARREST_BODY_3D.replace(
-        "Arrest Location 5028 BELT ROAD NW WASHINGTON, DC 20016",
-        "Arrest Location 5028 BELT ROAD NW\nWASHINGTON, DC 20016\nUNITED STATES",
-    )
+def test_parse_arrest_email_joins_multi_line_address_in_body():
+    """The default fixture above puts the address across 3 lines —
+    verify the canonical example also assembles correctly."""
     out = parse_arrest_email(
         subject="MPD: Preliminary Arrest Report for 3D",
-        text_body=body,
+        text_body=ARREST_BODY_3D,
     )
     assert "5028 BELT ROAD NW" in out[0].arrest_location
     assert "WASHINGTON, DC 20016" in out[0].arrest_location
     assert "UNITED STATES" in out[0].arrest_location
+
+
+# (Multi-line address parsing is now covered by
+#  test_parse_arrest_email_joins_multi_line_address_in_body — the
+#  default fixture itself has the address split across 3 lines.)
 
 
 def test_parse_arrest_email_joins_wrapped_offense():
@@ -286,17 +331,17 @@ def test_parse_arrest_email_handles_unparseable_age(monkeypatch):
     assert out[0].age is None
 
 
-def test_parse_arrest_email_stops_at_reminder_footer():
-    """Arrest emails don't have a 'KEY:' footer — they end with the
-    'Reminder:' / 'Disclaimer:' / 'Please Note:' boilerplate. Without
-    explicit termination there, the continuation-line logic glues all
-    that text onto the last record's last field (officer)."""
+def test_parse_arrest_email_handles_no_key_footer():
+    """Arrest emails have no 'KEY:' legend at all — they trail off
+    into the GovDelivery email signature. Parser should still
+    terminate cleanly at end-of-text without hanging on signature
+    lines."""
     out = parse_arrest_email(
         subject="MPD: Preliminary Arrest Report for 3D",
         text_body=ARREST_BODY_3D,
     )
-    assert len(out) == 2
-    # The last record's officer must be JUST the officer — no boilerplate.
-    assert out[-1].officer == "Smith 99999"
-    # And nothing leaked into earlier fields either.
-    assert "Reminder" not in (out[-1].offense or "")
+    assert len(out) == 3
+    assert out[-1].arrest_number == "022611888"
+    # Trailing signature lines must NOT have leaked into the last
+    # record's last field.
+    assert out[-1].officer == "Jones 13579"
