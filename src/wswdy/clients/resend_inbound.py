@@ -33,6 +33,38 @@ class ResendInboundError(Exception):
     """Raised when Resend's API returns an unexpected response."""
 
 
+async def list_received_emails(
+    *, api_key: str, limit: int = 100, after: str | None = None,
+    before: str | None = None, timeout_s: float = 15.0,
+) -> dict[str, Any]:
+    """List received emails. ID-based pagination via ``after`` / ``before``.
+
+    Resend supports ``limit`` 1–100 (default 20). Pass ``after=<email_id>``
+    on subsequent calls to walk forward through the inbox; the response's
+    ``has_more`` flag indicates whether another page exists. Item objects
+    carry summary metadata only (subject, from/to, message_id, etc) —
+    the body is not included; call ``get_received_email`` for that.
+    """
+    if not api_key:
+        raise ResendInboundError("Resend API key is not configured")
+    if after and before:
+        raise ResendInboundError("specify only one of `after` or `before`")
+    params: dict[str, Any] = {"limit": max(1, min(int(limit), 100))}
+    if after:
+        params["after"] = after
+    if before:
+        params["before"] = before
+    url = f"{API_BASE}/emails/receiving"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    async with httpx.AsyncClient(timeout=timeout_s) as client:
+        r = await client.get(url, headers=headers, params=params)
+        if r.status_code >= 400:
+            raise ResendInboundError(
+                f"list_received_emails {r.status_code}: {r.text[:200]}"
+            )
+        return r.json()
+
+
 async def get_received_email(
     email_id: str, *, api_key: str, timeout_s: float = 15.0,
 ) -> dict[str, Any]:
