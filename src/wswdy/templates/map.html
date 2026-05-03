@@ -206,7 +206,7 @@ function crimePopupHtml(p) {
   // CCN — useful for subscribers who want to request the full incident
   // report directly from MPD (FOIA / public-records request).
   if (p.ccn) {
-    rows.push(`<div class="pop-row"><span class="k">CCN</span><span class="v"><code>${escapeHtml(p.ccn)}</code></span></div>`);
+    rows.push(`<div class="pop-row"><span class="k">CCN</span><span class="v">${escapeHtml(p.ccn)}</span></div>`);
   }
   return rows.join('');
 }
