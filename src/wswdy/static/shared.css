@@ -221,10 +221,10 @@ body {
 }
 .field-hint strong { color: var(--ink); font-weight: 600; }
 
-/* WhatsApp phone input — pinned "+1" prefix so the country code can't
-   be visually skipped when subscribers type their own number. The
-   prefix is rendered inside the same border as the digits field, so
-   it reads as one unified control. */
+/* WhatsApp phone input — country code dropdown + national digits, both
+   inside the same border so the control reads as one unified field.
+   The dropdown forces subscribers to acknowledge the country code,
+   which is the missing piece that lets WhatsApp actually deliver. */
 .phone-input-group {
   display: flex;
   align-items: stretch;
@@ -238,18 +238,22 @@ body {
   border-color: var(--ink);
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
 }
-.phone-prefix {
-  display: flex;
-  align-items: center;
-  padding: 0 0.75rem;
-  background: var(--surface-2);
+.phone-country {
+  flex: 0 0 auto;
+  border: none;
   border-right: 1px solid var(--border-2);
+  background: var(--surface-2);
+  padding: 0 0.65rem;
   font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--ink);
-  user-select: none;
+  cursor: pointer;
+  /* Constrain the width so the selected option stays compact even when
+     the option list itself contains long country names. */
+  max-width: 8.5rem;
 }
+.phone-country:focus { outline: none; }
 .phone-input-group .phone-input-national {
   border: none;
   border-radius: 0;

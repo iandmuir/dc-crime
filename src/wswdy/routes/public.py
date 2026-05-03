@@ -69,6 +69,7 @@ async def signup_submit(
     radius_m: int = Form(...),
     email: str = Form(""),
     phone: str = Form(""),
+    phone_country: str = Form("+1"),
     lat: float | None = Form(None),
     lon: float | None = Form(None),
 ):
@@ -105,12 +106,22 @@ async def signup_submit(
     if not (200 <= radius_m <= 2000):
         return Response(status_code=400, content="radius out of range")
 
-    # WhatsApp delivery silently fails when the number isn't E.164. Force
-    # normalization here so a 10-digit US entry like "9174945082" becomes
-    # "+19174945082" before we ever record it in the DB.
+    # WhatsApp delivery silently fails when the number isn't E.164.
+    # The signup form sends two fields:
+    #   - ``phone_country`` — selected country code (e.g. ``+1``)
+    #   - ``phone``         — national number digits, possibly formatted
+    # Combine them BEFORE normalize_phone so it never has to guess the
+    # country code from a bare 10-digit input. If a subscriber bypasses
+    # the form (or for legacy entries), normalize_phone still accepts
+    # raw E.164 or 10-digit-US strings as a fallback.
     if preferred_channel == "whatsapp":
+        digits = "".join(c for c in (phone or "") if c.isdigit())
+        if phone_country and phone_country.startswith("+") and digits:
+            combined = phone_country + digits
+        else:
+            combined = phone
         try:
-            phone = normalize_phone(phone)
+            phone = normalize_phone(combined)
         except InvalidPhoneNumber as e:
             return templates.TemplateResponse(
                 request,
