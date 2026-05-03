@@ -128,6 +128,49 @@ _FOOTER_RE = re.compile(r"^KEY\s*[:\-]", re.IGNORECASE)
 _CONTINUABLE_FIELDS = frozenset({"arrest_location", "block", "offense", "method"})
 
 
+# Strip the obvious-context tail ("WASHINGTON, DC <ZIP> UNITED STATES")
+# from arrest addresses, keeping just street + ZIP. Every address in
+# the feed is in DC by construction, so the city/state/country bytes are
+# pure noise — they push the popup-relevant info off the screen and
+# render as "Washington, Dc" once humanize_address title-cases them.
+# Falls back to the raw string if the tail isn't present (e.g. for
+# bare intersection addresses like "14TH STREET NW & K STREET NW").
+_ADDR_TAIL_RE = re.compile(
+    r"^(?P<street>.+?)\s+WASHINGTON,?\s+D\.?C\.?\s+(?P<zip>\d{5})"
+    r"(?:\s+UNITED\s+STATES)?\s*$",
+    re.IGNORECASE,
+)
+# Defensive cleanup for the partial cases — no zip, just trailing
+# "UNITED STATES", or "WASHINGTON, DC" with no zip.
+_ADDR_TRAILING_NOISE_RE = re.compile(
+    r"\s+(WASHINGTON,?\s+D\.?C\.?(?:\s+\d{5})?|UNITED\s+STATES)\s*$",
+    re.IGNORECASE,
+)
+
+
+def clean_arrest_location(addr: str | None) -> str | None:
+    """Trim the city/state/country tail from an arrest address.
+
+    Returns ``"<street>, <zip>"`` when the standard tail is present,
+    otherwise removes only the trailing "WASHINGTON, DC" / "UNITED STATES"
+    suffix. Intersection-style addresses (which often lack a zip) come
+    through unchanged.
+    """
+    if not addr:
+        return addr
+    m = _ADDR_TAIL_RE.match(addr.strip())
+    if m:
+        street = m.group("street").rstrip(", ").strip()
+        return f"{street}, {m.group('zip')}"
+    cleaned = addr.strip()
+    while True:
+        new = _ADDR_TRAILING_NOISE_RE.sub("", cleaned).strip().rstrip(",")
+        if new == cleaned:
+            break
+        cleaned = new
+    return cleaned
+
+
 # Field labels (in body) keyed by canonical field name. Order matters for
 # the multi-word labels: longer labels must be checked before shorter
 # prefixes (e.g. "RPT DATE" before "RPT").
@@ -363,7 +406,7 @@ def parse_arrest_email(*, subject: str, text_body: str) -> list[ArrestEmailRecor
             district=district,
             psa=rec.get("psa"),
             arrest_dt=_parse_dt(rec.get("arrest_dt")),
-            arrest_location=rec.get("arrest_location"),
+            arrest_location=clean_arrest_location(rec.get("arrest_location")),
             offender_first_name=rec.get("offender_first_name"),
             offender_last_name=rec.get("offender_last_name"),
             gender=rec.get("gender"),
