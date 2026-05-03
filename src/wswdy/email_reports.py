@@ -215,6 +215,7 @@ def _iter_record_blocks(
     """
     blocks: list[dict[str, str]] = []
     current: dict[str, str] | None = None
+    last_key: str | None = None
     started = False
     start_key = next(k for k, label in fields if label == start_field)
 
@@ -238,13 +239,21 @@ def _iter_record_blocks(
         if line.startswith(start_field) and current and start_key in current:
             blocks.append(current)
             current = {}
+            last_key = None
         if current is None:
             current = {}
 
         key, value = _split_label(line, fields=fields)
         if key:
             current[key] = value
-        # Lines that don't match any known label are ignored.
+            last_key = key
+        elif last_key:
+            # Continuation line: MPD's email client soft-wraps long values
+            # at ~70 chars, and the multi-line ``Arrest Location`` field
+            # always spans street / city / state lines. Append to the
+            # previous label's value so we don't silently drop the rest.
+            current[last_key] = (current[last_key] + " " + line).strip()
+        # Lines before the first label in a record (rare) are ignored.
 
     if current:
         blocks.append(current)

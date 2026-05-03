@@ -207,6 +207,40 @@ def test_parse_arrest_email_extracts_full_arrestee_record():
     assert a.officer == "Doe 12345"
 
 
+def test_parse_arrest_email_joins_multi_line_address():
+    """Regression: Arrest Location is always multi-line in the email
+    (street, then city/state/zip, then country). The parser should
+    join continuation lines into a single value, not drop them."""
+    body = ARREST_BODY_3D.replace(
+        "Arrest Location 5028 BELT ROAD NW WASHINGTON, DC 20016",
+        "Arrest Location 5028 BELT ROAD NW\nWASHINGTON, DC 20016\nUNITED STATES",
+    )
+    out = parse_arrest_email(
+        subject="MPD: Preliminary Arrest Report for 3D",
+        text_body=body,
+    )
+    assert "5028 BELT ROAD NW" in out[0].arrest_location
+    assert "WASHINGTON, DC 20016" in out[0].arrest_location
+    assert "UNITED STATES" in out[0].arrest_location
+
+
+def test_parse_arrest_email_joins_wrapped_offense():
+    """Regression: long offenses (e.g. 'Carrying a Pistol Without a
+    License (Outside Home or Place of Business)') wrap mid-parenthetical
+    in MPD's emails. The closing parenthesis must survive."""
+    body = ARREST_BODY_3D.replace(
+        "Offense Threat To Kidnap Or Injure A Person",
+        "Offense Carrying a Pistol Without a License (Outside Home or Place of\nBusiness)",
+    )
+    out = parse_arrest_email(
+        subject="MPD: Preliminary Arrest Report for 3D",
+        text_body=body,
+    )
+    assert out[0].offense == (
+        "Carrying a Pistol Without a License (Outside Home or Place of Business)"
+    )
+
+
 def test_parse_arrest_email_handles_abbreviated_month():
     """Regression: MPD's templates use 3-letter month abbreviations
     ("Apr 30, ..."). Earlier we only had %B (full month) format strings,
