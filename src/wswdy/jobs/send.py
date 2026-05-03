@@ -197,17 +197,26 @@ def listserv_reports_in_today(
     shipping the daily digest. Without this check, the digest goes out
     before MPD's ~7:50-8:05 AM batch arrives, and arrest counts are
     always a day stale.
+
+    Note on the comparison string: ``pdf_ingest_log.ingested_at`` is
+    populated by SQLite's ``CURRENT_TIMESTAMP`` default, which writes a
+    naive UTC timestamp in ``"YYYY-MM-DD HH:MM:SS"`` form (space
+    separator, no offset). We must format the cutoff string the same
+    way — using ``datetime.isoformat()`` would give ``"YYYY-MM-DDT..."``
+    which sorts AFTER the space-separated form (' ' = 0x20 < 'T' = 0x54)
+    and the WHERE clause would silently match nothing.
     """
     today_et_start = (
         _parse_iso_as_utc(now_iso).astimezone(ET).date()
     )
-    start_dt = datetime.combine(
+    start_dt_utc = datetime.combine(
         today_et_start, datetime.min.time(), tzinfo=ET,
-    ).astimezone(UTC).isoformat()
+    ).astimezone(UTC)
+    start_str = start_dt_utc.strftime("%Y-%m-%d %H:%M:%S")
     rows = db.execute(
         """SELECT kind, COUNT(*) FROM pdf_ingest_log
            WHERE ingested_at >= ? GROUP BY kind""",
-        (start_dt,),
+        (start_str,),
     ).fetchall()
     counts = {r[0]: r[1] for r in rows}
     return counts.get("crime", 0) > 0, counts.get("arrest", 0) > 0
