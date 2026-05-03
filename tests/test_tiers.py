@@ -1,6 +1,6 @@
 import pytest
 
-from wswdy.tiers import classify, tier_label
+from wswdy.tiers import arrest_tier_label, classify, classify_arrest, tier_label
 
 CASES = [
     # offense, method, expected tier
@@ -40,3 +40,24 @@ def test_tier_labels():
     assert tier_label(2) == "serious property"
     assert tier_label(3) == "vehicle"
     assert tier_label(4) == "petty"
+
+
+# ---- Arrest classifier ----
+
+@pytest.mark.parametrize("felony_misd,expected", [
+    ("FELONY", 1),
+    ("felony", 1),
+    ("MISDEMEANOR", 2),
+    ("misdemeanor", 2),
+    ("", 3),
+    (None, 3),
+    ("UNKNOWN", 3),
+])
+def test_classify_arrest(felony_misd, expected):
+    assert classify_arrest({"felony_misd": felony_misd}) == expected
+
+
+def test_arrest_tier_labels():
+    assert arrest_tier_label(1) == "felony"
+    assert arrest_tier_label(2) == "misdemeanor"
+    assert arrest_tier_label(3) == "unspecified"

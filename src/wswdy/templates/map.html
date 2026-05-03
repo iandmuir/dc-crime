@@ -34,9 +34,15 @@
       </label>
       <label class="layer-row">
         <input type="checkbox" id="show-crashes" checked />
-        <span class="layer-marker crash-marker"></span>
+        <span class="layer-marker crash-marker">{{ icon_car_svg|safe }}</span>
         <span class="layer-name">Crashes</span>
         <span class="layer-count" id="layer-crash-count">0</span>
+      </label>
+      <label class="layer-row">
+        <input type="checkbox" id="show-arrests" checked />
+        <span class="layer-marker arrest-marker">{{ icon_badge_svg|safe }}</span>
+        <span class="layer-name">Arrests</span>
+        <span class="layer-count" id="layer-arrest-count">0</span>
       </label>
     </div>
 
@@ -53,10 +59,19 @@
     <div class="legend">
       <div class="legend-eyebrow">crash severity <span class="legend-hint">click to toggle</span></div>
       <div class="legend-rows">
-        <div class="legend-row tier-toggle" data-layer="crash" data-tier="1"><span class="swatch crash-swatch t1"></span><span class="lbl">Fatal</span><span class="num" id="cleg-1">0</span></div>
-        <div class="legend-row tier-toggle" data-layer="crash" data-tier="2"><span class="swatch crash-swatch t2"></span><span class="lbl">Major injury</span><span class="num" id="cleg-2">0</span></div>
-        <div class="legend-row tier-toggle" data-layer="crash" data-tier="3"><span class="swatch crash-swatch t3"></span><span class="lbl">Minor injury</span><span class="num" id="cleg-3">0</span></div>
-        <div class="legend-row tier-toggle" data-layer="crash" data-tier="4"><span class="swatch crash-swatch t4"></span><span class="lbl">Property only</span><span class="num" id="cleg-4">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crash" data-tier="1"><span class="swatch crash-swatch t1">{{ icon_car_svg|safe }}</span><span class="lbl">Fatal</span><span class="num" id="cleg-1">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crash" data-tier="2"><span class="swatch crash-swatch t2">{{ icon_car_svg|safe }}</span><span class="lbl">Major injury</span><span class="num" id="cleg-2">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crash" data-tier="3"><span class="swatch crash-swatch t3">{{ icon_car_svg|safe }}</span><span class="lbl">Minor injury</span><span class="num" id="cleg-3">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="crash" data-tier="4"><span class="swatch crash-swatch t4">{{ icon_car_svg|safe }}</span><span class="lbl">Property only</span><span class="num" id="cleg-4">0</span></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-eyebrow">arrests <span class="legend-hint">click to toggle</span></div>
+      <div class="legend-rows">
+        <div class="legend-row tier-toggle" data-layer="arrest" data-tier="1"><span class="swatch arrest-swatch t1">{{ icon_badge_svg|safe }}</span><span class="lbl">Felony</span><span class="num" id="aleg-1">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="arrest" data-tier="2"><span class="swatch arrest-swatch t2">{{ icon_badge_svg|safe }}</span><span class="lbl">Misdemeanor</span><span class="num" id="aleg-2">0</span></div>
+        <div class="legend-row tier-toggle" data-layer="arrest" data-tier="3"><span class="swatch arrest-swatch t3">{{ icon_badge_svg|safe }}</span><span class="lbl">Unspecified</span><span class="num" id="aleg-3">0</span></div>
       </div>
     </div>
   </aside>
@@ -121,21 +136,30 @@ const radiusCircle = L.circle(HOME, { radius: RADIUS_M, className: 'radius-circl
 
 map.fitBounds(radiusCircle.getBounds(), { padding: [40, 40], animate: false });
 
-// Two layer groups so we can toggle each independently and never race
+// Three layer groups so we can toggle each independently and never race
 // crash data into the crime layer or vice versa.
 const crimeLayer = L.layerGroup().addTo(map);
 const crashLayer = L.layerGroup().addTo(map);
+const arrestLayer = L.layerGroup().addTo(map);
 
 const crimeData = {};   // window -> FeatureCollection
 const crashData = {};
+const arrestData = {};
 let activeWindow = '24h';
+
+// SVG icon markup injected by the server template (single source of truth
+// for the silhouettes — used in legends, layer toggles, and map markers).
+const ICON_CAR = `{{ icon_car_svg|safe }}`;
+const ICON_BADGE = `{{ icon_badge_svg|safe }}`;
 
 // Per-tier visibility state. All tiers visible by default; subscribers
 // can click any legend row to hide that tier (e.g. silence the noisy
-// property-only crashes).
+// property-only crashes). Arrests have only 3 tiers (felony / misdemeanor
+// / unspecified) — no tier 4.
 const tierState = {
   crime: { 1: true, 2: true, 3: true, 4: true },
   crash: { 1: true, 2: true, 3: true, 4: true },
+  arrest: { 1: true, 2: true, 3: true },
 };
 
 async function fetchJson(path) {
@@ -170,6 +194,11 @@ function crimePopupHtml(p) {
   ];
   if (p.weapon) {
     rows.push(`<div class="pop-row"><span class="k">weapon</span><span class="v">${escapeHtml(p.weapon)}</span></div>`);
+  }
+  // PDF-only LOCATION enum (Restaurant, Residence/Home, etc). Only present
+  // when that district's daily LISTSERV PDF has been ingested.
+  if (p.location) {
+    rows.push(`<div class="pop-row"><span class="k">location</span><span class="v">${escapeHtml(p.location)}</span></div>`);
   }
   return rows.join('');
 }
@@ -330,8 +359,8 @@ function renderCrashes(fc) {
     if (!tierState.crash[t]) return;  // tier hidden by user
     const icon = L.divIcon({
       className: '',
-      html: `<div class="crash-icon t${t}"></div>`,
-      iconSize: [16,16], iconAnchor: [8,8],
+      html: `<div class="crash-icon t${t}">${ICON_CAR}</div>`,
+      iconSize: [22,22], iconAnchor: [11,11],
     });
     L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]], { icon })
       .addTo(crashLayer)
@@ -339,6 +368,59 @@ function renderCrashes(fc) {
   });
   for (let i=1; i<=4; i++) document.getElementById('cleg-'+i).textContent = counts[i-1];
   document.getElementById('layer-crash-count').textContent = fc.features.length;
+}
+
+function arrestPopupTitle(p) {
+  // "Felony arrest — Aggravated Assault" / "Misdemeanor arrest — Theft" /
+  // "Arrest — Threat To Kidnap" when classification is missing.
+  const cls = (p.felony_misd || '').toString();
+  const prefix = cls
+    ? cls[0].toUpperCase() + cls.slice(1).toLowerCase() + ' arrest'
+    : 'Arrest';
+  const off = p.offense ? ` — ${p.offense}` : '';
+  return prefix + off;
+}
+
+function arrestPopupHtml(p) {
+  const rows = [
+    `<div class="pop-title">${escapeHtml(arrestPopupTitle(p))}</div>`,
+    `<div class="pop-row"><span class="k">where</span><span class="v">${escapeHtml(p.address || '')}</span></div>`,
+    `<div class="pop-row"><span class="k">when</span><span class="v">${escapeHtml(fmtDate(p.arrest_dt))}</span></div>`,
+  ];
+  if (p.name) {
+    const meta = [];
+    if (p.age) meta.push(String(p.age));
+    if (p.gender) meta.push(p.gender);
+    const tail = meta.length ? ` (${meta.join(', ')})` : '';
+    rows.push(`<div class="pop-row"><span class="k">arrestee</span><span class="v">${escapeHtml(p.name + tail)}</span></div>`);
+  }
+  if (p.officer) {
+    rows.push(`<div class="pop-row"><span class="k">officer</span><span class="v">${escapeHtml(p.officer)}</span></div>`);
+  }
+  if (p.district) {
+    rows.push(`<div class="pop-row"><span class="k">district</span><span class="v">${escapeHtml(p.district)}</span></div>`);
+  }
+  return rows.join('');
+}
+
+function renderArrests(fc) {
+  arrestLayer.clearLayers();
+  const counts = [0,0,0];
+  fc.features.forEach(f => {
+    const t = f.properties.tier;
+    counts[t-1]++;
+    if (!tierState.arrest[t]) return;  // tier hidden by user
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="arrest-icon t${t}">${ICON_BADGE}</div>`,
+      iconSize: [22,22], iconAnchor: [11,11],
+    });
+    L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]], { icon })
+      .addTo(arrestLayer)
+      .bindPopup(arrestPopupHtml(f.properties));
+  });
+  for (let i=1; i<=3; i++) document.getElementById('aleg-'+i).textContent = counts[i-1];
+  document.getElementById('layer-arrest-count').textContent = fc.features.length;
 }
 
 async function loadCrimes(window) {
@@ -355,16 +437,29 @@ async function loadCrashes(window) {
   return fc;
 }
 
+async function loadArrests(window) {
+  const fc = await fetchJson(`/api/arrests?subscriber=${SID}&token=${encodeURIComponent(TOKEN)}&window=${window}`);
+  if (!fc) return null;
+  arrestData[window] = fc;
+  return fc;
+}
+
 function renderActive() {
   const crimes = crimeData[activeWindow];
   const crashes = crashData[activeWindow];
+  const arrests = arrestData[activeWindow];
   if (crimes) renderCrimes(crimes);
   if (crashes) renderCrashes(crashes);
+  if (arrests) renderArrests(arrests);
 
   // Toggle counts: show combined count for that window button.
   ['24h', '7d', '30d'].forEach(w => {
-    const c = (crimeData[w]?.features.length ?? 0) + (crashData[w]?.features.length ?? 0);
-    if (crimeData[w] || crashData[w]) document.getElementById('n-' + w).textContent = c;
+    const c = (crimeData[w]?.features.length ?? 0)
+            + (crashData[w]?.features.length ?? 0)
+            + (arrestData[w]?.features.length ?? 0);
+    if (crimeData[w] || crashData[w] || arrestData[w]) {
+      document.getElementById('n-' + w).textContent = c;
+    }
   });
 
   applyLayerVisibility();
@@ -373,14 +468,17 @@ function renderActive() {
 function applyLayerVisibility() {
   const showCrimes = document.getElementById('show-crimes').checked;
   const showCrashes = document.getElementById('show-crashes').checked;
+  const showArrests = document.getElementById('show-arrests').checked;
   if (showCrimes) map.addLayer(crimeLayer); else map.removeLayer(crimeLayer);
   if (showCrashes) map.addLayer(crashLayer); else map.removeLayer(crashLayer);
+  if (showArrests) map.addLayer(arrestLayer); else map.removeLayer(arrestLayer);
 }
 
 async function ensureWindow(window) {
   const tasks = [];
   if (!crimeData[window]) tasks.push(loadCrimes(window));
   if (!crashData[window]) tasks.push(loadCrashes(window));
+  if (!arrestData[window]) tasks.push(loadArrests(window));
   if (tasks.length) await Promise.all(tasks);
 }
 
@@ -407,6 +505,7 @@ document.querySelectorAll('#toggle button').forEach(b => {
 
 document.getElementById('show-crimes').addEventListener('change', applyLayerVisibility);
 document.getElementById('show-crashes').addEventListener('change', applyLayerVisibility);
+document.getElementById('show-arrests').addEventListener('change', applyLayerVisibility);
 
 // Per-tier toggle: clicking any legend row hides/shows just that tier.
 // Visual state (the "disabled" class on the row) is mirrored from
@@ -422,6 +521,8 @@ document.querySelectorAll('.tier-toggle').forEach(row => {
       renderCrimes(crimeData[activeWindow]);
     } else if (layer === 'crash' && crashData[activeWindow]) {
       renderCrashes(crashData[activeWindow]);
+    } else if (layer === 'arrest' && arrestData[activeWindow]) {
+      renderArrests(arrestData[activeWindow]);
     }
   });
 });

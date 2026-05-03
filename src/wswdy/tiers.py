@@ -64,3 +64,24 @@ def classify_crash(crash: dict) -> int:
 
 def crash_tier_label(tier: int) -> str:
     return _CRASH_LABELS[tier]
+
+
+# ----- Arrest tier classification ---------------------------------------
+# 3-tier scheme (no tier 4) matching the user-confirmed Phase 2 design:
+#   Tier 1: Felony
+#   Tier 2: Misdemeanor
+#   Tier 3: Unspecified (PDF doesn't always classify)
+_ARREST_LABELS: Final = {1: "felony", 2: "misdemeanor", 3: "unspecified"}
+
+
+def classify_arrest(arrest: dict) -> int:
+    fm = (arrest.get("felony_misd") or "").strip().upper()
+    if fm == "FELONY":
+        return 1
+    if fm == "MISDEMEANOR":
+        return 2
+    return 3
+
+
+def arrest_tier_label(tier: int) -> str:
+    return _ARREST_LABELS[tier]

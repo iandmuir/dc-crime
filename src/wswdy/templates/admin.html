@@ -101,6 +101,42 @@
   </div>
 
   <div class="card" style="margin-bottom:1.25rem;">
+    <h2 class="card-title">PDF coverage</h2>
+    <p style="font-size:.85rem; color:var(--ink-2); margin:.25rem 0 .8rem;">
+      Daily MPD LISTSERV reports per district. Green = ingested in last 24h,
+      yellow = 24-48h, red = older or never.
+    </p>
+    <table class="coverage-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;">District</th>
+          <th>Crime PDF</th>
+          <th>Arrest PDF</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in pdf_coverage %}
+        <tr>
+          <td><strong>{{ row.district }}</strong></td>
+          {% for cell in row.cells %}
+          <td>
+            <span class="cov-light cov-{{ cell.status }}"
+                  title="{% if cell.ingested_at %}{{ cell.ingested_at | et }} · {{ cell.records }} records{% if cell.source_file %} · {{ cell.source_file }}{% endif %}{% else %}never ingested{% endif %}"></span>
+            <span class="cov-meta tnum">
+              {% if cell.hours is none %}—
+              {% elif cell.hours < 1 %}{{ "%.0f"|format(cell.hours * 60) }}m
+              {% elif cell.hours < 48 %}{{ "%.0f"|format(cell.hours) }}h
+              {% else %}{{ "%.0f"|format(cell.hours / 24) }}d{% endif %}
+            </span>
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-bottom:1.25rem;">
     <h2 class="card-title">MPD fetch</h2>
     {% if last_fetch %}
       <div class="summary-row"><span class="k">status</span><span class="v">{{ last_fetch.status }}</span></div>

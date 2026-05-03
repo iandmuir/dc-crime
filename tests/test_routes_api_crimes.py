@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from wswdy.main import create_app
+from wswdy.repos import crime_extras as crime_extras_repo
 from wswdy.repos import subscribers as subs_repo
 from wswdy.repos.crimes import upsert_many
 from wswdy.tokens import sign
@@ -85,3 +86,19 @@ def test_api_crimes_invalid_window_400(app):
     client = TestClient(app)
     r = client.get(f"/api/crimes?subscriber=abc&token={token}&window=year")
     assert r.status_code == 400
+
+
+def test_api_crimes_includes_pdf_location_when_present(app):
+    """Crimes whose CCN has a crime_extras row (from the daily LISTSERV PDF)
+    should expose `location` in the popup payload. CCNs without a row come
+    back with `location` = None."""
+    token = _seed(app)
+    crime_extras_repo.upsert_many(app.state.db, [
+        {"ccn": "near-recent", "district": "1D", "psa": "101",
+         "location": "Restaurant", "source": "pdf_listserv"},
+    ])
+    client = TestClient(app)
+    r = client.get(f"/api/crimes?subscriber=abc&token={token}&window=7d")
+    by_ccn = {f["properties"]["ccn"]: f["properties"] for f in r.json()["features"]}
+    assert by_ccn["near-recent"]["location"] == "Restaurant"
+    assert by_ccn["near-old"]["location"] is None
