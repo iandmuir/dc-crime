@@ -925,6 +925,17 @@ body {
   font-size: 0.95rem;
   margin-bottom: 0.4rem;
 }
+/* Small eyebrow above the popup title — used for arrest classification
+   ("Felony arrest" / "Misdemeanor arrest") so the offense itself can
+   be the headline. */
+.pop-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.15rem;
+}
 .pop-row {
   display: flex;
   gap: 0.6rem;

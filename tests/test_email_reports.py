@@ -207,6 +207,19 @@ def test_parse_arrest_email_extracts_full_arrestee_record():
     assert a.officer == "Doe 12345"
 
 
+def test_parse_arrest_email_captures_offense():
+    """Regression: 'Offense' (arrest label) collided case-insensitively
+    with 'OFFENSE' (crime label), causing the arrest offense to be
+    silently dropped. Both records should round-trip with their full
+    offense string intact."""
+    out = parse_arrest_email(
+        subject="MPD: Preliminary Arrest Report for 3D",
+        text_body=ARREST_BODY_3D,
+    )
+    assert out[0].offense == "Threat To Kidnap Or Injure A Person"
+    assert out[1].offense == "Simple Assault"
+
+
 def test_parse_arrest_email_handles_unparseable_age(monkeypatch):
     body = ARREST_BODY_3D.replace("Age 48", "Age unknown")
     out = parse_arrest_email(
