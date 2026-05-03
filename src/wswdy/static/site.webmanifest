@@ -1,0 +1,13 @@
+{
+  "name": "WTFDC — WTF went down near me yesterday?",
+  "short_name": "WTFDC",
+  "description": "Daily DC briefing of crimes, crashes, and arrests near your home.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#FAFAF6",
+  "theme_color": "#FAFAF6",
+  "icons": [
+    { "src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
