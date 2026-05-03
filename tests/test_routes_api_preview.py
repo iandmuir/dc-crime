@@ -34,7 +34,7 @@ def _seed(app):
     ])
 
 
-def test_preview_returns_aggregate_counts(app):
+def test_preview_returns_three_up_counts(app):
     _seed(app)
     client = TestClient(app)
     r = client.post("/api/preview",
@@ -42,10 +42,11 @@ def test_preview_returns_aggregate_counts(app):
     assert r.status_code == 200
     d = r.json()
     assert d["window_days"] == 7
-    assert d["total"] == 2
-    assert d["by_tier"]["1"] == 1
-    assert d["by_tier"]["4"] == 1
-    assert d["avg_per_day"] == pytest.approx(2/7, abs=0.01)
+    assert d["crimes"]["total"] == 2
+    assert d["crimes"]["avg_per_day"] == pytest.approx(2 / 7, abs=0.01)
+    # Crashes / arrests not seeded -> zero, but the keys exist.
+    assert d["crashes"]["total"] == 0
+    assert d["arrests"]["total"] == 0
 
 
 def test_preview_validates_radius(app):

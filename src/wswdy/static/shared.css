@@ -456,10 +456,7 @@ body {
   margin-bottom: 1.5rem;
   min-height: 80px;
 }
-.preview.empty .preview-headline,
-.preview.empty .preview-sub,
-.preview.empty .preview-bar,
-.preview.empty .preview-legend { display: none; }
+.preview.empty .preview-trio { display: none; }
 .preview.empty .preview-empty-msg { display: block; }
 .preview-empty-msg {
   display: none;
@@ -480,34 +477,42 @@ body {
   margin-bottom: 0.6rem;
 }
 .preview-eyebrow .r { color: var(--t4); font-weight: 600; }
-.preview-headline {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin-bottom: 0.2rem;
+
+/* Three-up summary: crimes / crashes / arrests, each as a small card
+   with the headline count + per-day rate. Replaces the old crime-only
+   tier breakdown — subscribers care more about which feed has volume
+   than about the tier mix at signup time. */
+.preview-trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
 }
-.preview-number { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
-.preview-label { font-size: 0.84rem; color: var(--ink-3); }
-.preview-sub { font-size: 0.8rem; color: var(--ink-3); margin-bottom: 0.75rem; }
-.preview-bar {
-  display: flex;
-  height: 6px;
-  border-radius: 99px;
-  overflow: hidden;
-  margin-bottom: 0.75rem;
-  gap: 2px;
+.preview-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 0.6rem 0.75rem;
+  text-align: center;
 }
-.preview-bar > span { border-radius: 99px; transition: width 0.3s; }
-.preview-legend { display: flex; flex-direction: column; gap: 0.3rem; }
-.preview-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--ink-2);
+.preview-card .preview-num {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  color: var(--ink);
 }
-.preview-legend-item .lbl { flex: 1; }
-.preview-legend-item .num { font-variant-numeric: tabular-nums; font-weight: 500; }
+.preview-card .preview-cap {
+  font-size: 0.74rem;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 0.15rem;
+}
+.preview-card .preview-rate {
+  font-size: 0.7rem;
+  color: var(--ink-4);
+  margin-top: 0.15rem;
+}
 
 /* ----- address status ----- */
 .addr-status {

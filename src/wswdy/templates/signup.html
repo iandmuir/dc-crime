@@ -8,7 +8,7 @@
       <span class="accent">WTF</span> went down near me yesterday?
     </h1>
     <p class="hero-sub">
-      A quiet morning summary of crimes and crashes reported within walking distance of your home in DC.
+      A quiet morning summary of crimes, crashes, and arrests reported within walking distance of your home in DC.
       Email or WhatsApp. Free. No ads. Run by a neighbor.
     </p>
   </section>
@@ -94,25 +94,25 @@
         <span class="l">Within <span id="prev-r" class="tnum">1,000</span>m · last 7 days</span>
         <span class="r">live</span>
       </div>
-      <div class="preview-headline">
-        <span class="preview-number" id="prev-total">—</span>
-        <span class="preview-label">crimes reported</span>
-      </div>
-      <div class="preview-sub">≈ <span class="tnum" id="prev-avg">—</span> per day on average</div>
-      <div class="preview-bar" aria-hidden="true">
-        <span style="background: var(--t1);"></span>
-        <span style="background: var(--t2);"></span>
-        <span style="background: var(--t3);"></span>
-        <span style="background: var(--t4);"></span>
-      </div>
-      <div class="preview-legend">
-        <div class="preview-legend-item"><span class="tier-dot t1"></span><span class="lbl">Violent</span><span class="num">—</span></div>
-        <div class="preview-legend-item"><span class="tier-dot t2"></span><span class="lbl">Serious property</span><span class="num">—</span></div>
-        <div class="preview-legend-item"><span class="tier-dot t3"></span><span class="lbl">Vehicle</span><span class="num">—</span></div>
-        <div class="preview-legend-item"><span class="tier-dot t4"></span><span class="lbl">Petty</span><span class="num">—</span></div>
+      <div class="preview-trio">
+        <div class="preview-card">
+          <div class="preview-num tnum" id="prev-crimes">—</div>
+          <div class="preview-cap">crimes</div>
+          <div class="preview-rate"><span class="tnum" id="prev-crimes-avg">—</span>/day</div>
+        </div>
+        <div class="preview-card">
+          <div class="preview-num tnum" id="prev-crashes">—</div>
+          <div class="preview-cap">crashes</div>
+          <div class="preview-rate"><span class="tnum" id="prev-crashes-avg">—</span>/day</div>
+        </div>
+        <div class="preview-card">
+          <div class="preview-num tnum" id="prev-arrests">—</div>
+          <div class="preview-cap">arrests</div>
+          <div class="preview-rate"><span class="tnum" id="prev-arrests-avg">—</span>/day</div>
+        </div>
       </div>
       <div class="preview-empty-msg">
-        Enter an address above to preview crime activity in your area.
+        Enter an address above to preview activity in your area.
       </div>
     </div>
 
@@ -248,7 +248,9 @@
     }, 400);
   });
 
-  // Live preview
+  // Live preview — three high-level counts (crimes, crashes, arrests)
+  // for the chosen address + radius. Updates as the user types or
+  // drags the radius slider.
   function schedulePreview() {
     clearTimeout(debounceTimer);
     if (!latInput.value || !lonInput.value) return;
@@ -264,20 +266,14 @@
       preview.classList.remove('loading');
       if (!r.ok) { preview.classList.add('empty'); return; }
       const d = await r.json();
-      const total = d.total;
-      document.getElementById('prev-total').textContent = total;
-      document.getElementById('prev-avg').textContent = d.avg_per_day.toFixed(1);
-      const sum = total || 1;
-      const bars = document.querySelectorAll('.preview-bar > span');
-      bars[0].style.width = (d.by_tier['1'] / sum * 100) + '%';
-      bars[1].style.width = (d.by_tier['2'] / sum * 100) + '%';
-      bars[2].style.width = (d.by_tier['3'] / sum * 100) + '%';
-      bars[3].style.width = (d.by_tier['4'] / sum * 100) + '%';
-      const nums = document.querySelectorAll('.preview-legend-item .num');
-      nums[0].textContent = d.by_tier['1'];
-      nums[1].textContent = d.by_tier['2'];
-      nums[2].textContent = d.by_tier['3'];
-      nums[3].textContent = d.by_tier['4'];
+      const fmt = (n) => Number(n).toFixed(1).replace(/\.0$/, '');
+      document.getElementById('prev-crimes').textContent = d.crimes.total;
+      document.getElementById('prev-crashes').textContent = d.crashes.total;
+      document.getElementById('prev-arrests').textContent = d.arrests.total;
+      document.getElementById('prev-crimes-avg').textContent = fmt(d.crimes.avg_per_day);
+      document.getElementById('prev-crashes-avg').textContent = fmt(d.crashes.avg_per_day);
+      document.getElementById('prev-arrests-avg').textContent = fmt(d.arrests.avg_per_day);
+      const total = d.crimes.total + d.crashes.total + d.arrests.total;
       if (total === 0) preview.classList.add('zero');
     }, 300);
   }
