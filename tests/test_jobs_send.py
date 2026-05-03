@@ -180,6 +180,17 @@ def test_feed_has_yesterdays_data_ignores_single_straggler(db):
     assert not feed_has_yesterdays_data(db, now_iso="2026-04-29T13:00:00+00:00")
 
 
+def _seed_listserv_today(db, kinds=("crime", "arrest"), district="2D"):
+    """Helper: seed today's pdf_ingest_log so the readiness check passes."""
+    for kind in kinds:
+        db.execute(
+            "INSERT INTO pdf_ingest_log (district, kind, source_file, records) "
+            "VALUES (?, ?, ?, ?)",
+            (district, kind, "test", 1),
+        )
+    db.commit()
+
+
 async def test_run_send_if_ready_waits_when_feed_stale_before_cutoff(db, tmp_path):
     """Adaptive send: stale feed + before cutoff -> waiting, no dispatch fires."""
     _seed_subscriber(db, "s1", channel="email")
@@ -191,19 +202,21 @@ async def test_run_send_if_ready_waits_when_feed_stale_before_cutoff(db, tmp_pat
     out = await run_send_if_ready(
         db=db, email=email, whatsapp=wa, alerter=alerter,
         base_url="https://x", hmac_secret="s",
-        now_iso="2026-04-29T13:00:00+00:00",  # 9 AM ET, before 7 PM cutoff
-        cutoff_hour_et=19,
+        now_iso="2026-04-29T13:00:00+00:00",  # 9 AM ET, before EoD cutoff
+        cutoff_hour_et=19, cutoff_minute_et=0,
         render_static_map=AsyncMock(return_value=tmp_path / "p.png"),
     )
-    assert out["status"] == "waiting_for_fresh_data"
+    assert out["status"] == "waiting_for_data"
     assert email.sent == []
 
 
-async def test_run_send_if_ready_fires_when_feed_fresh(db, tmp_path):
-    """Adaptive send: feed has yesterday's data -> dispatch fires immediately."""
+async def test_run_send_if_ready_waits_when_listserv_emails_not_in(db, tmp_path):
+    """New: even when the API feed has yesterday's data, we still wait
+    until today's crime + arrest LISTSERV emails arrive (or hit cutoff)."""
     _seed_subscriber(db, "s1", channel="email")
     for i in range(6):
         _seed_crime(db, ccn=f"Y{i}", when_iso=f"2026-04-28T{10+i:02d}:00:00Z")
+    # NOTE: no pdf_ingest_log rows seeded — emails haven't arrived yet.
     email = FakeNotifier()
     wa = FakeNotifier()
     alerter = AdminAlerter(db=db, email=email, admin_email="admin@x",
@@ -211,8 +224,29 @@ async def test_run_send_if_ready_fires_when_feed_fresh(db, tmp_path):
     out = await run_send_if_ready(
         db=db, email=email, whatsapp=wa, alerter=alerter,
         base_url="https://x", hmac_secret="s",
-        now_iso="2026-04-29T13:00:00+00:00",  # 9 AM ET
-        cutoff_hour_et=19,
+        now_iso="2026-04-29T11:30:00+00:00",  # 7:30 AM ET, before 8:10 cutoff
+        render_static_map=AsyncMock(return_value=tmp_path / "p.png"),
+    )
+    assert out["status"] == "waiting_for_data"
+    assert out["fresh"] is True
+    assert out["have_arrest_today"] is False
+    assert email.sent == []
+
+
+async def test_run_send_if_ready_fires_when_everything_in(db, tmp_path):
+    """Feed fresh + both LISTSERV emails today -> dispatch fires."""
+    _seed_subscriber(db, "s1", channel="email")
+    for i in range(6):
+        _seed_crime(db, ccn=f"Y{i}", when_iso=f"2026-04-28T{10+i:02d}:00:00Z")
+    _seed_listserv_today(db)
+    email = FakeNotifier()
+    wa = FakeNotifier()
+    alerter = AdminAlerter(db=db, email=email, admin_email="admin@x",
+                           ha_webhook_url="", suppression_hours=6)
+    out = await run_send_if_ready(
+        db=db, email=email, whatsapp=wa, alerter=alerter,
+        base_url="https://x", hmac_secret="s",
+        now_iso="2026-04-29T12:10:00+00:00",  # 8:10 AM ET — just at cutoff
         render_static_map=AsyncMock(return_value=tmp_path / "p.png"),
     )
     assert out["status"] == "sent"
@@ -220,7 +254,7 @@ async def test_run_send_if_ready_fires_when_feed_fresh(db, tmp_path):
 
 
 async def test_run_send_if_ready_force_sends_at_cutoff(db, tmp_path):
-    """Adaptive send: stale feed + past cutoff -> force-send anyway."""
+    """Stale feed + past cutoff -> force-send anyway."""
     _seed_subscriber(db, "s1", channel="email")
     _seed_crime(db, ccn="OLD", when_iso="2026-04-27T15:00:00Z")
     email = FakeNotifier()
@@ -230,8 +264,7 @@ async def test_run_send_if_ready_force_sends_at_cutoff(db, tmp_path):
     out = await run_send_if_ready(
         db=db, email=email, whatsapp=wa, alerter=alerter,
         base_url="https://x", hmac_secret="s",
-        now_iso="2026-04-29T23:30:00+00:00",  # 7:30 PM ET, past cutoff
-        cutoff_hour_et=19,
+        now_iso="2026-04-29T23:30:00+00:00",  # 7:30 PM ET — well past 8:10
         render_static_map=AsyncMock(return_value=tmp_path / "p.png"),
     )
     assert out["status"] == "sent_at_cutoff"
@@ -239,10 +272,11 @@ async def test_run_send_if_ready_force_sends_at_cutoff(db, tmp_path):
 
 
 async def test_run_send_if_ready_skips_if_already_sent(db, tmp_path):
-    """Adaptive send: a send already recorded for today -> noop on subsequent triggers."""
+    """A send already recorded for today -> noop on subsequent triggers."""
     _seed_subscriber(db, "s1", channel="email")
     for i in range(6):
         _seed_crime(db, ccn=f"Y{i}", when_iso=f"2026-04-28T{10+i:02d}:00:00Z")
+    _seed_listserv_today(db)
     email = FakeNotifier()
     wa = FakeNotifier()
     alerter = AdminAlerter(db=db, email=email, admin_email="admin@x",
@@ -251,7 +285,6 @@ async def test_run_send_if_ready_skips_if_already_sent(db, tmp_path):
         db=db, email=email, whatsapp=wa, alerter=alerter,
         base_url="https://x", hmac_secret="s",
         now_iso="2026-04-29T13:00:00+00:00",
-        cutoff_hour_et=19,
         render_static_map=AsyncMock(return_value=tmp_path / "p.png"),
     )
     first = await run_send_if_ready(**common)

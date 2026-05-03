@@ -102,6 +102,7 @@ async def lifespan(app: FastAPI):
             hmac_secret=settings.hmac_secret,
             now_iso=now_iso,
             cutoff_hour_et=settings.send_cutoff_hour_et,
+            cutoff_minute_et=settings.send_cutoff_minute_et,
             render_static_map=render,
             static_map_dir=static_map_dir,
         )

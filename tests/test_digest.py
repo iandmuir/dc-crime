@@ -72,6 +72,102 @@ def test_build_digest_appends_mpd_warning_when_flagged():
     assert "MPD data" in text or "delayed" in text.lower()
 
 
+def _arrest(**props):
+    base = {
+        "arrest_number": "X1",
+        "felony_misd": "MISDEMEANOR",
+        "offense": "Simple Assault",
+        "arrest_location": "1219 CONNECTICUT AVENUE NW, 20036",
+        "arrest_dt": "2026-05-03T20:40:00+00:00",
+        "lat": 38.9097, "lon": -77.0319,
+        "offender_first": "Jane",
+        "offender_last": "Doe",
+        "gender": "Female",
+        "age": 36,
+    }
+    base.update(props)
+    return base
+
+
+def test_digest_omits_arrest_section_when_arg_is_none():
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=CRIMES,
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        arrests=None,
+    )
+    assert "👮" not in text
+    assert "Arrests" not in text
+
+
+def test_digest_arrest_no_report_yet_when_email_not_in():
+    """have_arrest_today=False means MPD's morning email hasn't landed.
+    The digest must say so explicitly so subscribers don't read 0
+    arrests as 'a quiet day'."""
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=[],
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        arrests=[], have_arrest_today=False,
+    )
+    assert "No arrest report yet" in text
+
+
+def test_digest_arrest_zero_in_radius_when_report_in():
+    """have_arrest_today=True with empty list — quiet day phrasing."""
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=[],
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        arrests=[], have_arrest_today=True,
+    )
+    assert "No arrests within" in text
+
+
+def test_digest_renders_arrest_tier_counts_and_closest():
+    arrests = [
+        _arrest(arrest_number="A1", felony_misd="FELONY",
+                offense="Threat To Kidnap",
+                lat=HOME[0] + 0.0008, lon=HOME[1]),
+        _arrest(arrest_number="A2", felony_misd="MISDEMEANOR",
+                offense="Simple Assault",
+                lat=HOME[0] + 0.0015, lon=HOME[1]),
+        _arrest(arrest_number="A3", felony_misd="MISDEMEANOR",
+                offense="Theft",
+                lat=HOME[0] + 0.0030, lon=HOME[1]),
+        _arrest(arrest_number="A4", felony_misd=None,
+                offense="Bench Warrant",
+                lat=HOME[0] + 0.0050, lon=HOME[1]),
+    ]
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=[],
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        arrests=arrests, have_arrest_today=True,
+    )
+    assert "👮 Arrests within 1,000m (last 24h):" in text
+    assert "1 felony" in text
+    assert "2 misdemeanors" in text
+    assert "1 unspecified" in text
+    # Closest section shows the 2 nearest with full callouts.
+    assert "Closest:" in text
+    assert "Felony — Threat To Kidnap" in text
+    # Demographics are formatted as (Name, age, gender-letter).
+    assert "(Jane Doe, 36, F)" in text
+
+
+def test_digest_arrest_callout_tolerates_missing_name():
+    arrests = [_arrest(offender_first=None, offender_last=None,
+                       lat=HOME[0] + 0.0008, lon=HOME[1])]
+    text = build_digest_text(
+        display_name="Jane", radius_m=1000, crimes=[],
+        home_lat=HOME[0], home_lon=HOME[1],
+        map_url="https://x/m", unsubscribe_url="https://x/u",
+        arrests=arrests, have_arrest_today=True,
+    )
+    assert "Misdemeanor — Simple Assault" in text
+
+
 def _crash(**props):
     base = {
         "id": "C1", "address": "1500 14TH ST NW",
