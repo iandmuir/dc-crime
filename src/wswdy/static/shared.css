@@ -109,15 +109,11 @@ body {
   transition: background 0.15s;
 }
 .nav-mark:hover { background: var(--surface-2); }
-.nav-mark::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  background: var(--t1);
-  border-radius: 3px;
-  transform: rotate(45deg);
+.nav-logo {
+  width: 22px;
+  height: 22px;
+  display: block;
   flex-shrink: 0;
-  box-shadow: 0 0 0 1px var(--ink) inset;
 }
 .nav-meta {
   font-family: var(--font-mono);

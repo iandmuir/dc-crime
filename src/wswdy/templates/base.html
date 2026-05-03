@@ -22,12 +22,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/shared.css?v=26" />
+  <link rel="stylesheet" href="/static/shared.css?v=27" />
   {% block head_extra %}{% endblock %}
 </head>
 <body>
   <header class="nav">
-    <a href="/" class="nav-mark">/wtfdc</a>
+    <a href="/" class="nav-mark">
+      <img src="/static/icon-192.png" alt="" class="nav-logo" />
+      /wtfdc
+    </a>
     <div class="nav-meta">{% block nav_meta %}DC · friends &amp; family alpha{% endblock %}</div>
   </header>
   {% block content %}{% endblock %}
