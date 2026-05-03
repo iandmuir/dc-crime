@@ -220,6 +220,48 @@ body {
   line-height: 1.4;
 }
 .field-hint strong { color: var(--ink); font-weight: 600; }
+
+/* WhatsApp phone input — pinned "+1" prefix so the country code can't
+   be visually skipped when subscribers type their own number. The
+   prefix is rendered inside the same border as the digits field, so
+   it reads as one unified control. */
+.phone-input-group {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.phone-input-group:focus-within {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
+}
+.phone-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  background: var(--surface-2);
+  border-right: 1px solid var(--border-2);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ink);
+  user-select: none;
+}
+.phone-input-group .phone-input-national {
+  border: none;
+  border-radius: 0;
+  flex: 1;
+  background: transparent;
+  /* Override the default focus glow — the wrapper handles it now. */
+  box-shadow: none;
+}
+.phone-input-group .phone-input-national:focus {
+  outline: none;
+  box-shadow: none;
+}
 .field-label {
   display: block;
   font-size: 0.78rem;
