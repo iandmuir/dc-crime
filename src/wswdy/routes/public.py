@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Form, Request, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from wswdy.clients.maptiler import GeocodeError, geocode_address
+from wswdy.districts import district_for
 from wswdy.geo import in_dc_bbox
 from wswdy.ids import new_subscriber_id
 from wswdy.phone import InvalidPhoneNumber, normalize_phone
@@ -119,6 +120,12 @@ async def signup_submit(
             )
 
     sid = new_subscriber_id()
+    # Auto-tag with the MPD police district whose LISTSERV reports this
+    # subscriber's digest depends on. Falls back to None if the
+    # boundary file isn't installed yet — the per-subscriber readiness
+    # check then degrades to the global "any district shipped today"
+    # gate, matching the pre-Option-2 behavior.
+    district = district_for(place["lat"], place["lon"])
     subs_repo.insert_pending(
         request.app.state.db,
         sid=sid,
@@ -130,6 +137,7 @@ async def signup_submit(
         lat=place["lat"],
         lon=place["lon"],
         radius_m=radius_m,
+        district=district,
     )
 
     # Build the admin notification but send it in the background so the

@@ -17,7 +17,17 @@ CREATE TABLE IF NOT EXISTS subscribers (
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   approved_at     TIMESTAMP,
   unsubscribed_at TIMESTAMP,
-  last_sent_at    TIMESTAMP
+  last_sent_at    TIMESTAMP,
+  -- MPD police district whose LISTSERV reports this subscriber's digest
+  -- depends on. Computed from lat/lon at signup via a point-in-polygon
+  -- lookup. Nullable for backwards compat with older rows; the per-
+  -- subscriber readiness check falls back to the global "any" gate when
+  -- this is null.
+  district        TEXT,
+  -- Comma-separated extra districts the subscriber wants tracked in
+  -- addition to ``district`` — used when their search radius spills
+  -- across a boundary. Null/empty = primary district only.
+  extra_districts TEXT
 );
 CREATE INDEX IF NOT EXISTS subscribers_status_idx ON subscribers(status);
 
@@ -196,4 +206,21 @@ def connect(db_path: str) -> sqlite3.Connection:
 
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    _migrate_subscribers_districts(conn)
     conn.commit()
+
+
+def _migrate_subscribers_districts(conn: sqlite3.Connection) -> None:
+    """Idempotent ALTER TABLE migration for the ``subscribers.district``
+    and ``subscribers.extra_districts`` columns.
+
+    SQLite's ``CREATE TABLE IF NOT EXISTS`` is a no-op once the table
+    exists, so it doesn't add new columns to old DBs. We check
+    ``PRAGMA table_info`` for the column names and run an ``ALTER
+    TABLE`` only when missing — safe to call on every startup.
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(subscribers)")}
+    if "district" not in cols:
+        conn.execute("ALTER TABLE subscribers ADD COLUMN district TEXT")
+    if "extra_districts" not in cols:
+        conn.execute("ALTER TABLE subscribers ADD COLUMN extra_districts TEXT")
