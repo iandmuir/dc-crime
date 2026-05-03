@@ -764,14 +764,22 @@ body {
 }
 
 /* Leaflet markers (rendered as L.divIcon) */
+/* Subscriber's home location. Deliberately uses a non-severity color
+   (soft slate-blue) plus a house silhouette so it can't be mistaken for
+   a violent crime / fatal crash marker (which are now solid black). */
 .home-marker {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--ink);
-  border: 4px solid var(--surface);
-  box-shadow: 0 0 0 1px var(--ink), 0 2px 4px rgba(0,0,0,0.2);
+  background: #475569;          /* slate-600 — neutral, not in any tier palette */
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;                  /* drives currentColor inside the inline SVG */
 }
+.home-marker svg { display: block; }
 .marker {
   width: 18px;
   height: 18px;

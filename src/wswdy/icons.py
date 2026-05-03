@@ -21,6 +21,16 @@ ICON_CAR_SVG = (
     '</svg>'
 )
 
+# Simple house silhouette. Used for the subscriber's home marker on the
+# map — a non-tier color (soft slate-blue) keeps it visually distinct
+# from severity markers.
+ICON_HOME_SVG = (
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" '
+    'aria-hidden="true">'
+    '<path d="M12 3.2L3 11h2v9h5v-6h4v6h5v-9h2L12 3.2z"/>'
+    '</svg>'
+)
+
 # Sheriff/police 5-point star badge. Used for arrest markers + the arrest
 # legend swatch.
 ICON_BADGE_SVG = (
