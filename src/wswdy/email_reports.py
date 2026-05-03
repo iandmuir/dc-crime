@@ -186,18 +186,28 @@ def extract_district(subject: str | None, body_text: str | None = None) -> str |
 
 # ---------- block iterator -------------------------------------------------
 
-def _iter_record_blocks(text: str, *, start_field: str) -> list[dict[str, str]]:
+def _iter_record_blocks(
+    text: str, *, fields: tuple[tuple[str, str], ...], start_field: str,
+) -> list[dict[str, str]]:
     """Walk the body line-by-line, splitting it into records.
+
+    ``fields`` is the kind-specific list of ``(canonical_key, label)``
+    pairs to recognize (passed by the caller — *only* crime fields when
+    parsing a crime email, *only* arrest fields when parsing an arrest
+    email). This kind-awareness matters because some labels collide
+    case-insensitively across the two formats — most importantly the
+    crime ``OFFENSE`` and arrest ``Offense`` labels — and a single
+    shared scanner would silently drop one or the other.
 
     A record begins on any line whose first labelled field equals
     ``start_field`` (e.g. ``PSA`` for crime, ``Arrest Number#`` for
-    arrest). The function returns a list of ``{label: value}`` dicts —
-    raw labels, no field-name normalization yet (that's done by the
-    caller). Stops at ``KEY:`` or end-of-text.
+    arrest). Returns a list of ``{canonical_key: value}`` dicts. Stops
+    at ``KEY:`` or end-of-text.
     """
     blocks: list[dict[str, str]] = []
     current: dict[str, str] | None = None
     started = False
+    start_key = next(k for k, label in fields if label == start_field)
 
     for raw in text.splitlines():
         line = raw.strip()
@@ -216,18 +226,15 @@ def _iter_record_blocks(text: str, *, start_field: str) -> list[dict[str, str]]:
 
         # New-record detection: a line that starts with the
         # start_field label opens a new block.
-        if line.startswith(start_field) and current is not None and current:
-            # Already collecting a record AND saw a record-start label —
-            # close out the current block and begin a fresh one.
-            if start_field.lower() in {k.lower() for k in current}:
-                blocks.append(current)
-                current = {}
+        if line.startswith(start_field) and current and start_key in current:
+            blocks.append(current)
+            current = {}
         if current is None:
             current = {}
 
-        label, value = _split_label(line)
-        if label:
-            current[label] = value
+        key, value = _split_label(line, fields=fields)
+        if key:
+            current[key] = value
         # Lines that don't match any known label are ignored.
 
     if current:
@@ -235,24 +242,29 @@ def _iter_record_blocks(text: str, *, start_field: str) -> list[dict[str, str]]:
     return blocks
 
 
-def _split_label(line: str) -> tuple[str | None, str]:
-    """Return (canonical_label, value) for a body line.
+def _split_label(
+    line: str, *, fields: tuple[tuple[str, str], ...],
+) -> tuple[str | None, str]:
+    """Return ``(canonical_key, value)`` for a body line.
 
-    Tries every known label (crime + arrest) and returns the longest
-    match. The label is returned exactly as it appeared (uppercased for
-    crime-side labels, mixed case for arrest-side) — caller normalizes."""
+    Only checks ``fields`` (the kind-specific list passed by the
+    caller). When multiple labels could match a line (e.g. ``PSA`` and
+    ``Arrest Location PSA`` both prefix ``Arrest Location PSA 202``),
+    the longest label wins so the more specific one always takes
+    precedence over a shared prefix.
+    """
     line_norm = line.strip()
-    candidates = []
-    for _, label in _CRIME_FIELDS + _ARREST_FIELDS:
-        if line_norm.upper().startswith(label.upper() + " "):
-            candidates.append(label)
-        elif line_norm.upper() == label.upper():
-            candidates.append(label)
+    line_upper = line_norm.upper()
+    candidates: list[tuple[str, str]] = []
+    for key, label in fields:
+        label_upper = label.upper()
+        if line_upper.startswith(label_upper + " ") or line_upper == label_upper:
+            candidates.append((key, label))
     if not candidates:
         return None, ""
-    label = max(candidates, key=len)
+    key, label = max(candidates, key=lambda kl: len(kl[1]))
     value = line_norm[len(label):].strip()
-    return label, value
+    return key, value
 
 
 # ---------- public parsers -------------------------------------------------
@@ -260,14 +272,12 @@ def _split_label(line: str) -> tuple[str | None, str]:
 def parse_crime_email(*, subject: str, text_body: str) -> list[CrimeEmailRecord]:
     """Parse the plain-text body of an MPD Preliminary Crime Report email."""
     district = extract_district(subject, text_body)
-    raw_blocks = _iter_record_blocks(text_body, start_field="PSA")
+    blocks = _iter_record_blocks(
+        text_body, fields=_CRIME_FIELDS, start_field="PSA",
+    )
 
     records: list[CrimeEmailRecord] = []
-    field_map = {label: key for key, label in _CRIME_FIELDS}
-    for block in raw_blocks:
-        # Re-key the block by canonical names.
-        rec: dict[str, str] = {field_map[label]: v for label, v in block.items()
-                                if label in field_map}
+    for rec in blocks:
         ccn = rec.get("ccn")
         if not ccn:
             continue
@@ -289,13 +299,12 @@ def parse_crime_email(*, subject: str, text_body: str) -> list[CrimeEmailRecord]
 def parse_arrest_email(*, subject: str, text_body: str) -> list[ArrestEmailRecord]:
     """Parse the plain-text body of an MPD Preliminary Arrest Report email."""
     district = extract_district(subject, text_body)
-    raw_blocks = _iter_record_blocks(text_body, start_field="Arrest Number#")
+    blocks = _iter_record_blocks(
+        text_body, fields=_ARREST_FIELDS, start_field="Arrest Number#",
+    )
 
     records: list[ArrestEmailRecord] = []
-    field_map = {label: key for key, label in _ARREST_FIELDS}
-    for block in raw_blocks:
-        rec: dict[str, str] = {field_map[label]: v for label, v in block.items()
-                                if label in field_map}
+    for rec in blocks:
         arrest_number = rec.get("arrest_number")
         if not arrest_number:
             continue

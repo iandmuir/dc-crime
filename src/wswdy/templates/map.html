@@ -373,20 +373,25 @@ function renderCrashes(fc) {
   document.getElementById('layer-crash-count').textContent = fc.features.length;
 }
 
-function arrestPopupTitle(p) {
-  // "Felony arrest — Aggravated Assault" / "Misdemeanor arrest — Theft" /
-  // "Arrest — Threat To Kidnap" when classification is missing.
+function arrestClassLabel(p) {
+  // "Felony" / "Misdemeanor" / null. Used as a small eyebrow above the
+  // offense title — keeps severity visible without burying the offense.
   const cls = (p.felony_misd || '').toString();
-  const prefix = cls
-    ? cls[0].toUpperCase() + cls.slice(1).toLowerCase() + ' arrest'
-    : 'Arrest';
-  const off = p.offense ? ` — ${p.offense}` : '';
-  return prefix + off;
+  return cls ? cls[0].toUpperCase() + cls.slice(1).toLowerCase() : null;
 }
 
 function arrestPopupHtml(p) {
+  // Offense is the most useful single piece of info ("Simple Assault",
+  // "Threat to Kidnap") — use it as the card title. Felony/misdemeanor
+  // sits above as a small eyebrow.
+  const cls = arrestClassLabel(p);
+  const eyebrow = cls
+    ? `<div class="pop-eyebrow">${escapeHtml(cls)} arrest</div>`
+    : '';
+  const title = p.offense || 'Arrest';
   const rows = [
-    `<div class="pop-title">${escapeHtml(arrestPopupTitle(p))}</div>`,
+    eyebrow,
+    `<div class="pop-title">${escapeHtml(title)}</div>`,
     `<div class="pop-row"><span class="k">where</span><span class="v">${escapeHtml(p.address || '')}</span></div>`,
     `<div class="pop-row"><span class="k">when</span><span class="v">${escapeHtml(fmtDate(p.arrest_dt))}</span></div>`,
   ];
