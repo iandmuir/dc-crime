@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
-"""Manually parse one or more MPD daily report PDFs and pretty-print the
-extracted records. Used during Phase 1 development to validate the parser
-against real PDFs before the email-ingestion plumbing is wired up.
+"""Manually parse one or more MPD daily report PDFs.
 
-Usage:
+Two modes:
+
+  - Default (preview): pretty-print the parsed records. Used during
+    development to validate the parser against real PDFs without
+    touching the database.
+
+  - ``--persist``: parse + upsert into the configured SQLite DB and
+    record a coverage row in pdf_ingest_log. Arrest PDFs also trigger
+    MapTiler geocoding for any new rows. Idempotent — re-running over
+    the same PDF refreshes existing rows but doesn't double-insert.
+
+Usage::
+
     python scripts/ingest_pdf.py /path/to/file.pdf [/path/to/another.pdf ...]
     python scripts/ingest_pdf.py /path/to/dir/
+    python scripts/ingest_pdf.py --persist /path/to/dir/
 
 When given a directory, processes all *.pdf files inside it. Each PDF is
 auto-routed to the crime or arrest parser based on the report's header
@@ -14,6 +25,7 @@ text.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 from dataclasses import asdict
@@ -44,32 +56,19 @@ def _gather_pdfs(paths: list[str]) -> list[Path]:
     return out
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("paths", nargs="+", help="PDF files or directories")
-    ap.add_argument("--json", action="store_true",
-                    help="Emit JSON Lines output instead of human-readable")
-    ap.add_argument("--quiet", action="store_true",
-                    help="Don't print per-file headers")
-    args = ap.parse_args()
-
-    pdfs = _gather_pdfs(args.paths)
-    if not pdfs:
-        print("no PDFs found", file=sys.stderr)
-        return 1
-
+def _preview(pdfs: list[Path], *, as_json: bool, quiet: bool) -> int:
     total_crimes = 0
     total_arrests = 0
     for pdf in pdfs:
         kind = detect_pdf_kind(pdf)
-        if not args.quiet:
+        if not quiet:
             print(f"\n=== {pdf.name}  ({kind or 'unknown'}) ===")
         if kind == "crime":
             records = parse_crime_pdf(pdf)
             total_crimes += len(records)
             for r in records:
                 d = asdict(r)
-                if args.json:
+                if as_json:
                     print(json.dumps({"kind": "crime", **d}))
                 else:
                     print(f"  CCN {d['ccn']}: {d.get('offense')} "
@@ -79,7 +78,7 @@ def main() -> int:
             total_arrests += len(records)
             for r in records:
                 d = asdict(r)
-                if args.json:
+                if as_json:
                     print(json.dumps({"kind": "arrest", **d}))
                 else:
                     name = " ".join(filter(None, [
@@ -88,11 +87,61 @@ def main() -> int:
                     print(f"  Arrest {d['arrest_number']}: {name} "
                           f"({d.get('age')}) — {d.get('offense')!r}")
         else:
-            print(f"  ! could not detect report kind, skipping")
+            print("  ! could not detect report kind, skipping")
 
-    if not args.quiet:
+    if not quiet:
         print(f"\n--- total: {total_crimes} crimes, {total_arrests} arrests ---")
     return 0
+
+
+async def _persist(pdfs: list[Path], *, quiet: bool) -> int:
+    # Imports deferred so the preview path doesn't require DB / settings.
+    from wswdy.config import get_settings  # noqa: E402
+    from wswdy.db import connect, init_schema  # noqa: E402
+    from wswdy.jobs.pdf_ingest import ingest_pdf  # noqa: E402
+
+    settings = get_settings()
+    db = connect(settings.db_path)
+    init_schema(db)
+
+    rc = 0
+    for pdf in pdfs:
+        if not quiet:
+            print(f"\n=== {pdf.name} ===")
+        try:
+            res = await ingest_pdf(
+                db=db, path=pdf,
+                maptiler_api_key=settings.maptiler_api_key,
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"  ! ingest failed: {e}", file=sys.stderr)
+            rc = 1
+            continue
+        if not quiet:
+            print(f"  {res}")
+    return rc
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("paths", nargs="+", help="PDF files or directories")
+    ap.add_argument("--persist", action="store_true",
+                    help="Upsert into the database (otherwise: preview only)")
+    ap.add_argument("--json", action="store_true",
+                    help="Emit JSON Lines output instead of human-readable "
+                         "(preview mode only)")
+    ap.add_argument("--quiet", action="store_true",
+                    help="Don't print per-file headers")
+    args = ap.parse_args()
+
+    pdfs = _gather_pdfs(args.paths)
+    if not pdfs:
+        print("no PDFs found", file=sys.stderr)
+        return 1
+
+    if args.persist:
+        return asyncio.run(_persist(pdfs, quiet=args.quiet))
+    return _preview(pdfs, as_json=args.json, quiet=args.quiet)
 
 
 if __name__ == "__main__":

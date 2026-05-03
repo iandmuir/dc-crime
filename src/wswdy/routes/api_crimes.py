@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse, Response
 
 from wswdy.address import humanize_address
 from wswdy.offenses import humanize_method, humanize_offense
+from wswdy.repos import crime_extras as crime_extras_repo
 from wswdy.repos import subscribers as subs_repo
 from wswdy.repos.crimes import list_in_radius_window
 from wswdy.tiers import classify
@@ -39,6 +40,14 @@ async def api_crimes(request: Request, subscriber: str, token: str, window: str 
         request.app.state.db, sub["lat"], sub["lon"], sub["radius_m"],
         start=start, end=end,
     )
+
+    # Bulk-fetch the per-CCN PDF extras (location enum) so the popup can
+    # show "Restaurant" / "Residence/Home" / etc. for crimes whose district
+    # has shipped today's LISTSERV PDF. CCNs without a row stay as None.
+    extras = crime_extras_repo.get_many_by_ccn(
+        request.app.state.db, [r["ccn"] for r in rows],
+    )
+
     features = [{
         "type": "Feature",
         "geometry": {"type": "Point", "coordinates": [r["lon"], r["lat"]]},
@@ -54,6 +63,9 @@ async def api_crimes(request: Request, subscriber: str, token: str, window: str 
             "block": humanize_address(r["block_address"]),
             "report_dt": r["report_dt"],
             "tier": classify(r["offense"], r["method"]),
+            # PDF-only enum: Restaurant, Residence/Home, etc. None when we
+            # haven't ingested that district's PDF yet.
+            "location": (extras.get(r["ccn"]) or {}).get("location"),
         },
     } for r in rows]
     return JSONResponse({"type": "FeatureCollection", "features": features})

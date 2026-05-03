@@ -126,6 +126,59 @@ CREATE TABLE IF NOT EXISTS app_state (
   value          TEXT,
   updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Per-CCN extras parsed out of MPD's daily LISTSERV crime PDFs. The PDFs
+-- arrive ahead of the public ArcGIS feed and carry a useful LOCATION
+-- field (Restaurant, Residence/Home, Church Synagogue Temple Mosque, etc)
+-- that the API doesn't expose. Joined to crimes by ccn at read time —
+-- the canonical crime row still comes from the API.
+CREATE TABLE IF NOT EXISTS crime_extras (
+  ccn            TEXT PRIMARY KEY,
+  district       TEXT,                     -- '1D' .. '7D'
+  psa            TEXT,
+  location       TEXT,                     -- the new useful field
+  source         TEXT NOT NULL DEFAULT 'pdf_listserv',
+  ingested_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS crime_extras_district_idx ON crime_extras(district);
+
+-- Arrests parsed from MPD's daily LISTSERV arrest PDFs. Standalone dataset
+-- (no join to crimes — DC doesn't expose the link). Address is geocoded
+-- once at upsert time via MapTiler and lat/lon stored alongside.
+CREATE TABLE IF NOT EXISTS arrests (
+  arrest_number    TEXT PRIMARY KEY,
+  district         TEXT,                   -- '1D' .. '7D'
+  psa              TEXT,
+  arrest_dt        TIMESTAMP,              -- ISO UTC
+  arrest_location  TEXT,                   -- raw multi-line address, normalized
+  lat              REAL,                   -- geocoded; null if geocode failed
+  lon              REAL,
+  offender_first   TEXT,
+  offender_last    TEXT,
+  gender           TEXT,
+  age              INTEGER,
+  offense          TEXT,
+  felony_misd      TEXT,                   -- 'FELONY' / 'MISDEMEANOR' / null
+  officer          TEXT,
+  ingested_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS arrests_arrest_dt_idx ON arrests(arrest_dt);
+CREATE INDEX IF NOT EXISTS arrests_geo_idx ON arrests(lat, lon);
+CREATE INDEX IF NOT EXISTS arrests_district_idx ON arrests(district);
+
+-- One row per (district, kind, source-date) we successfully ingested. Drives
+-- the admin coverage tracker — most-recent-per-(district,kind) row tells us
+-- whether and when each district's report has landed today.
+CREATE TABLE IF NOT EXISTS pdf_ingest_log (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  district       TEXT NOT NULL,            -- '1D' .. '7D'
+  kind           TEXT NOT NULL,            -- 'crime' or 'arrest'
+  source_file    TEXT,                     -- original PDF filename, for debugging
+  records        INTEGER NOT NULL DEFAULT 0,
+  ingested_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS pdf_ingest_log_lookup_idx
+  ON pdf_ingest_log(district, kind, ingested_at);
 """
 
 

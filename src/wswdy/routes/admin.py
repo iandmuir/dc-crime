@@ -1,15 +1,62 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from wswdy.repos import subscribers as subs_repo
 from wswdy.repos.fetch_log import last_attempt
+from wswdy.repos.pdf_ingest_log import latest_per_district_kind
 from wswdy.repos.send_log import recent_failures, send_volume_last_n_days
 from wswdy.repos.subscribers import list_by_status
 from wswdy.tokens import sign
 
 router = APIRouter()
+
+DISTRICTS = ("1D", "2D", "3D", "4D", "5D", "6D", "7D")
+PDF_KINDS = ("crime", "arrest")
+
+
+def _coverage_status(ingested_at: str | None) -> tuple[str, float | None]:
+    """Map a last-ingest timestamp to (traffic-light status, hours-ago).
+
+    Status is one of 'green' (<24h), 'yellow' (24-48h), 'red' (>48h or
+    never). Hours-ago is None when we've never ingested for that cell."""
+    if not ingested_at:
+        return "red", None
+    try:
+        dt = datetime.fromisoformat(ingested_at.replace(" ", "T"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+    except ValueError:
+        return "red", None
+    hours = (datetime.now(UTC) - dt).total_seconds() / 3600
+    if hours < 24:
+        return "green", hours
+    if hours < 48:
+        return "yellow", hours
+    return "red", hours
+
+
+def _build_pdf_coverage(db) -> list[dict]:
+    """One row per district × {crime, arrest}. Used by the admin coverage tracker."""
+    latest = {(r["district"], r["kind"]): r for r in latest_per_district_kind(db)}
+    out = []
+    for district in DISTRICTS:
+        cells = []
+        for kind in PDF_KINDS:
+            row = latest.get((district, kind))
+            ingested = row["ingested_at"] if row else None
+            status, hours = _coverage_status(ingested)
+            cells.append({
+                "kind": kind,
+                "status": status,
+                "hours": hours,
+                "ingested_at": ingested,
+                "records": row["records"] if row else 0,
+                "source_file": row["source_file"] if row else None,
+            })
+        out.append({"district": district, "cells": cells})
+    return out
 
 
 def _check_admin(request: Request, token: str) -> Response | None:
@@ -63,6 +110,7 @@ async def admin_dashboard(request: Request, token: str = ""):
         "last_fetch": last_attempt(db),
         "send_volume": send_volume_last_n_days(db, n=7, today=str(date.today())),
         "failures": recent_failures(db, limit=20),
+        "pdf_coverage": _build_pdf_coverage(db),
         "token": token,
     })
 

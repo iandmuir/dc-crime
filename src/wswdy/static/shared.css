@@ -784,36 +784,48 @@ body {
 .marker.t3 { background: var(--t3); }
 .marker.t4 { background: var(--t4); }
 
-/* Crash markers — diamonds (rotated squares) so they're visually distinct
-   from the round crime dots. Same severity palette but different shape
-   for at-a-glance differentiation. */
-.crash-icon {
-  width: 16px;
-  height: 16px;
-  margin: 0 auto;
+/* Crash markers — top-down car silhouette inside a tier-tinted disc.
+   The car SVG is injected by the template (uses currentColor for fill)
+   so the disc background drives the severity color. White silhouette
+   on a colored disc reads at small sizes without losing the at-a-glance
+   "this is a vehicle" cue. */
+.crash-icon, .arrest-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   border: 2px solid var(--surface);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-  transform: rotate(45deg);
-  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;  /* drives currentColor inside the inline SVG */
 }
+.crash-icon svg, .arrest-icon svg { display: block; }
 .crash-icon.t1 { background: #0a0a0a; }              /* fatal — black */
 .crash-icon.t2 { background: var(--t1); }             /* major — red */
 .crash-icon.t3 { background: var(--t2); }             /* minor — orange */
 
 /* Property-only crashes are the most common — most blocks see several
-   per week. Render them noticeably smaller and quieter so they recede
+   per week. Render them noticeably smaller and muted so they recede
    into background context and don't drown out the marker tiers that
    actually involved injuries. */
 .crash-icon.t4 {
-  width: 8px;
-  height: 8px;
-  margin-top: 4px;  /* re-center the smaller diamond in the 16x16 hitbox */
+  width: 14px;
+  height: 14px;
   background: var(--ink-4);
-  border-color: var(--surface);
   border-width: 1px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
-  opacity: 0.65;
+  opacity: 0.7;
 }
+.crash-icon.t4 svg { width: 10px; height: 10px; }
+
+/* Arrest markers — sheriff-badge silhouette inside a navy/teal-tinted disc.
+   Tier here is felony / misdemeanor / unspecified, mapped onto a darker
+   palette than crashes so subscribers can distinguish them at a glance
+   even where the two layers overlap. */
+.arrest-icon.t1 { background: #1e3a8a; }              /* felony — deep blue */
+.arrest-icon.t2 { background: #0f766e; }              /* misdemeanor — teal */
+.arrest-icon.t3 { background: var(--ink-3); }         /* unspecified — grey */
 
 /* Layer toggle (crimes / crashes checkboxes in the sidebar) */
 .layer-toggle {
@@ -850,13 +862,19 @@ body {
   border: 2px solid var(--surface);
   box-shadow: 0 0 0 1px var(--border-2);
 }
-.layer-marker.crash-marker {
-  background: #0a0a0a;
+.layer-marker.crash-marker,
+.layer-marker.arrest-marker {
+  border-radius: 50%;
   border: 2px solid var(--surface);
   box-shadow: 0 0 0 1px var(--border-2);
-  border-radius: 2px;
-  transform: rotate(45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
 }
+.layer-marker.crash-marker { background: #0a0a0a; }
+.layer-marker.arrest-marker { background: #1e3a8a; }
+.layer-marker svg { width: 10px; height: 10px; display: block; }
 .layer-name { flex: 1; color: var(--ink); }
 .layer-count {
   font-variant-numeric: tabular-nums;
@@ -864,23 +882,34 @@ body {
   color: var(--ink-3);
 }
 
-/* Crash legend swatches use the same diamond shape as the markers.
-   Selectors here qualify with .legend-row to beat the round
-   `.legend-row .swatch { border-radius: 50% }` rule defined earlier. */
-.legend-row .swatch.crash-swatch {
-  border-radius: 2px;
-  transform: rotate(45deg);
+/* Crash + arrest legend swatches reuse the round disc + inline SVG markup
+   used on the map markers, so the legend visually matches what subscribers
+   actually see. Tier colors mirror the .crash-icon / .arrest-icon rules. */
+.legend-row .swatch.crash-swatch,
+.legend-row .swatch.arrest-swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.legend-row .swatch.crash-swatch svg,
+.legend-row .swatch.arrest-swatch svg {
+  width: 9px;
+  height: 9px;
+  display: block;
 }
 .legend-row .swatch.crash-swatch.t1 { background: #0a0a0a; }
 .legend-row .swatch.crash-swatch.t2 { background: var(--t1); }
 .legend-row .swatch.crash-swatch.t3 { background: var(--t2); }
-/* "Property only" swatch matches the smaller, faded marker style on the map */
+/* "Property only" swatch is muted to mirror the faded marker on the map. */
 .legend-row .swatch.crash-swatch.t4 {
   background: var(--ink-4);
-  width: 7px;
-  height: 7px;
-  opacity: 0.65;
+  opacity: 0.7;
 }
+
+.legend-row .swatch.arrest-swatch.t1 { background: #1e3a8a; }
+.legend-row .swatch.arrest-swatch.t2 { background: #0f766e; }
+.legend-row .swatch.arrest-swatch.t3 { background: var(--ink-3); }
 
 /* Leaflet popup styling */
 .pop-title {
@@ -958,3 +987,42 @@ body {
   font-size: 0.88rem;
 }
 .card table tbody tr:last-child td { border-bottom: none; }
+
+/* PDF coverage tracker — 7-districts × 2-kinds traffic-light grid on /admin.
+   Each cell shows a colored disc + an age label. Hover reveals the full
+   timestamp, source filename, and record count via the title attribute. */
+.coverage-table {
+  width: auto;
+  border-collapse: collapse;
+  margin-top: 0.25rem;
+}
+.coverage-table th, .coverage-table td {
+  padding: 0.4rem 1rem 0.4rem 0;
+  font-size: 0.88rem;
+}
+.coverage-table th {
+  font-weight: 500;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+.coverage-table tbody td {
+  border-bottom: 1px dashed var(--border);
+  text-align: center;
+}
+.coverage-table tbody td:first-child { text-align: left; }
+.coverage-table tbody tr:last-child td { border-bottom: none; }
+
+.cov-light {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 0.4rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+.cov-light.cov-green  { background: #2ecc71; }
+.cov-light.cov-yellow { background: #f1c40f; }
+.cov-light.cov-red    { background: #e74c3c; }
+.cov-meta { color: var(--ink-3); font-size: 0.8rem; }
