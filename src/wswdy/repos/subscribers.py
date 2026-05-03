@@ -12,18 +12,58 @@ def _utcnow() -> str:
 def insert_pending(
     db: sqlite3.Connection, *,
     sid: str, display_name: str, email: str | None, phone: str | None,
-    preferred_channel: str, address_text: str, lat: float, lon: float, radius_m: int,
+    preferred_channel: str, address_text: str, lat: float, lon: float,
+    radius_m: int, district: str | None = None,
 ) -> str:
     db.execute(
         """INSERT INTO subscribers
            (id, display_name, email, phone, preferred_channel,
-            address_text, lat, lon, radius_m, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')""",
+            address_text, lat, lon, radius_m, status, district)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)""",
         (sid, display_name, email, phone, preferred_channel,
-         address_text, lat, lon, radius_m),
+         address_text, lat, lon, radius_m, district),
     )
     db.commit()
     return sid
+
+
+def set_district(
+    db: sqlite3.Connection, sid: str, district: str | None,
+) -> None:
+    """Set or clear a subscriber's primary district. Used by the
+    backfill script and any admin-initiated overrides."""
+    db.execute("UPDATE subscribers SET district=? WHERE id=?",
+               (district, sid))
+    db.commit()
+
+
+def set_extra_districts(
+    db: sqlite3.Connection, sid: str, extras: list[str] | None,
+) -> None:
+    """Set the comma-separated extra-districts list. Pass ``None`` or
+    an empty list to clear."""
+    val = ",".join(d.strip().upper() for d in extras if d.strip()) \
+        if extras else None
+    db.execute("UPDATE subscribers SET extra_districts=? WHERE id=?",
+               (val, sid))
+    db.commit()
+
+
+def tracked_districts(sub: dict) -> list[str]:
+    """Return the full list of districts a subscriber depends on
+    (primary + extras), uppercased and deduplicated, preserving order."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in [sub.get("district")] + (
+        (sub.get("extra_districts") or "").split(",")
+    ):
+        if not raw:
+            continue
+        d = str(raw).strip().upper()
+        if d and d not in seen:
+            seen.add(d)
+            out.append(d)
+    return out
 
 
 def get(db: sqlite3.Connection, sid: str) -> dict | None:
