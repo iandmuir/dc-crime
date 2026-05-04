@@ -1114,6 +1114,25 @@ body {
 }
 .coverage-table tfoot td:first-child { text-align: left; }
 
+/* Compact numeric input used in the admin "Edit radius" inline form.
+   Sized to fit four digits without crowding the surrounding action
+   buttons. tnum lining figures so 1200 / 1500 / 2000 line up. */
+.radius-input {
+  width: 5.5ch;
+  padding: 0.25rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink);
+}
+.radius-input:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
 .cov-light.cov-green  { background: #2ecc71; }
 .cov-light.cov-yellow { background: #f1c40f; }
 .cov-light.cov-red    { background: #e74c3c; }
