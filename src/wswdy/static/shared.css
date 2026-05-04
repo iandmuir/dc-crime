@@ -1071,7 +1071,7 @@ body {
    Each cell shows a colored disc + an age label. Hover reveals the full
    timestamp, source filename, and record count via the title attribute. */
 .coverage-table {
-  width: auto;
+  width: 100%;
   border-collapse: collapse;
   margin-top: 0.25rem;
 }
