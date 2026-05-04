@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime, timedelta
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
-from wswdy.districts import district_for
+from wswdy.districts import _normalize_district, district_for
 from wswdy.repos import subscribers as subs_repo
 from wswdy.repos.fetch_log import last_attempt
 from wswdy.repos.pdf_ingest_log import latest_per_district_kind
@@ -42,7 +42,10 @@ def _crimes_24h_by_district(db) -> dict[str, int]:
     """Count crimes ingested in the last 24h per district. Filters on
     ``fetched_at`` (when WE got the row) rather than ``report_dt`` (when the
     crime happened), because MPD's ArcGIS feed lags 24-72h — using report_dt
-    would near-always return zero for the "today's fetch" view this drives."""
+    would near-always return zero for the "today's fetch" view this drives.
+
+    The ArcGIS feed stores district as a bare digit (``'1'``..``'7'``) while
+    the rest of the app uses ``'1D'``..``'7D'`` — normalize before bucketing."""
     cutoff = (datetime.now(UTC) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
     rows = db.execute(
         "SELECT district, COUNT(*) AS n FROM crimes "
@@ -50,7 +53,12 @@ def _crimes_24h_by_district(db) -> dict[str, int]:
         "GROUP BY district",
         (cutoff,),
     ).fetchall()
-    return {r["district"]: r["n"] for r in rows}
+    counts: dict[str, int] = {}
+    for r in rows:
+        d = _normalize_district(r["district"])
+        if d:
+            counts[d] = counts.get(d, 0) + r["n"]
+    return counts
 
 
 def _crashes_24h_by_district(db) -> dict[str, int]:

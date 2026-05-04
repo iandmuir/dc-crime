@@ -38,8 +38,10 @@ def upsert_many(db: sqlite3.Connection, crashes: list[dict]) -> tuple[int, int]:
     for c in crashes:
         cur = db.execute("SELECT 1 FROM crashes WHERE id=?", (c["id"],)).fetchone()
         if cur:
+            # Refresh fetched_at on UPDATE — see crimes.upsert_many for the
+            # rationale (admin coverage tracker reads the column).
             db.execute(
-                f"UPDATE crashes SET {update_set} WHERE id=?",
+                f"UPDATE crashes SET {update_set}, fetched_at=CURRENT_TIMESTAMP WHERE id=?",
                 (*[c.get(col) for col in _COLUMNS if col != "id"], c["id"]),
             )
             updated += 1
