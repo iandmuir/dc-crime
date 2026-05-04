@@ -186,13 +186,27 @@
 
   <div class="card" style="margin-bottom:1.25rem;">
     <h2 class="card-title">Send volume (last 7 days)</h2>
-    <table style="width:100%; border-collapse:collapse;">
+    {% set sv_n = send_volume|length %}
+    {% set sv_sent = send_volume|sum(attribute='sent') %}
+    {% set sv_failed = send_volume|sum(attribute='failed') %}
+    {% set sv_skipped = send_volume|sum(attribute='skipped') %}
+    <table class="coverage-table">
       <thead><tr><th style="text-align:left;">Date</th><th>Sent</th><th>Failed</th><th>Skipped</th></tr></thead>
       <tbody>
       {% for r in send_volume %}
       <tr><td class="tnum">{{ r.send_date }}</td><td class="tnum">{{ r.sent }}</td><td class="tnum">{{ r.failed }}</td><td class="tnum">{{ r.skipped }}</td></tr>
       {% endfor %}
       </tbody>
+      {% if sv_n %}
+      <tfoot>
+        <tr class="sv-avg">
+          <td><strong>avg / day</strong></td>
+          <td class="tnum">{{ "%.1f"|format(sv_sent / sv_n) }}</td>
+          <td class="tnum">{{ "%.1f"|format(sv_failed / sv_n) }}</td>
+          <td class="tnum">{{ "%.1f"|format(sv_skipped / sv_n) }}</td>
+        </tr>
+      </tfoot>
+      {% endif %}
     </table>
   </div>
 

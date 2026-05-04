@@ -1101,6 +1101,19 @@ body {
   margin-right: 0.4rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
+/* Send-volume table reuses .coverage-table styling and adds a footer
+   averages row, separated from the data by a solid border so it reads as
+   a summary rather than another data row. Same centered alignment as the
+   tbody cells; first cell stays left-aligned via the existing rule. */
+.coverage-table tfoot td {
+  padding: 0.5rem 1rem 0.4rem 0;
+  border-top: 1px solid var(--border-2);
+  text-align: center;
+  color: var(--ink-2);
+  font-size: 0.88rem;
+}
+.coverage-table tfoot td:first-child { text-align: left; }
+
 .cov-light.cov-green  { background: #2ecc71; }
 .cov-light.cov-yellow { background: #f1c40f; }
 .cov-light.cov-red    { background: #e74c3c; }
