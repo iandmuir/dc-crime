@@ -266,6 +266,36 @@ def extract_district(subject: str | None, body_text: str | None = None) -> str |
 
 # ---------- block iterator -------------------------------------------------
 
+def _normalize_body(text: str, fields: tuple[tuple[str, str], ...]) -> str:
+    """Split inline label sequences onto separate lines.
+
+    MPD's crime emails (as of May 2026) sometimes pack an entire record
+    onto a single line::
+
+        PSA 603 CCN 26059195 RPT DATE May 3 ... LOCATION Residence/Home
+
+    The arrest emails (and older crime emails) put each field on its
+    own line. We collapse both formats into the line-per-field form by
+    finding every known label that appears mid-line and injecting a
+    newline before it. Idempotent — labels that are already at the
+    start of a line are left alone.
+
+    Long labels are matched first ("Arrest Location PSA" before "PSA"),
+    so the more specific label wins when one is a prefix of another.
+    """
+    labels = sorted({label for _, label in fields}, key=len, reverse=True)
+    # ``(?<=\S)`` ensures we only break at labels that are NOT already
+    # at line start (i.e. preceded by a non-whitespace char). The
+    # following ``\s+`` consumes the preceding spaces — including
+    # ``\xa0`` non-breaking spaces MPD's emails use — and is replaced
+    # by a single newline. ``\s+`` after the label keeps the value's
+    # whitespace intact.
+    pattern = re.compile(
+        r"(?<=\S)\s+(?=(?:" + "|".join(re.escape(l) for l in labels) + r")\s)",
+    )
+    return pattern.sub("\n", text)
+
+
 def _iter_record_blocks(
     text: str, *, fields: tuple[tuple[str, str], ...], start_field: str,
 ) -> list[dict[str, str]]:
@@ -289,6 +319,10 @@ def _iter_record_blocks(
     last_key: str | None = None
     started = False
     start_key = next(k for k, label in fields if label == start_field)
+
+    # Pre-pass: collapse inline-label format into line-per-field form,
+    # so the rest of the loop only deals with one shape.
+    text = _normalize_body(text, fields)
 
     for raw in text.splitlines():
         line = raw.strip()

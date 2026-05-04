@@ -261,6 +261,45 @@ def test_parse_crime_email_stops_at_key_footer():
     assert len(out) == 2  # exactly the two real records, no legend rows
 
 
+def test_parse_crime_email_handles_single_line_record_format():
+    """Regression: real MPD crime emails (as of May 2026) put every field
+    of a record on a single line, separated by spaces:
+
+        PSA 603 CCN 26059195 RPT DATE May 3, 2026 ... LOCATION Residence/Home
+
+    The line-per-field format we tested with originally only matched the
+    older multi-line layout. The parser must normalize the inline form
+    into separate lines before iterating, otherwise it greedily lumps
+    every field's value onto the first label (psa).
+    """
+    body = (
+        "MPD Crime Blotter - 6D Header\n\n"
+        "This report contains information about recent crimes reported in the\xa06D\xa0District.\n\n"
+        "PSA 603 CCN 26059195 RPT DATE May 3, 2026 9:35:53 PM "
+        "OFFENSE Theft METHOD Theft (Second Degree) "
+        "BLOCK 100 BLOCK OF KENILWORTH AVENUE NE "
+        "LOCATION Residence/Home "
+        "START DT May 3, 2026 3:25:00 PM END DT May 3, 2026 4:09:00 PM\n \n"
+        "PSA 603 CCN 26059115 RPT DATE May 3, 2026 8:00:00 PM "
+        "OFFENSE Robbery METHOD Robbery "
+        "BLOCK 4500 BLOCK OF EAST CAPITOL ST NE "
+        "LOCATION Highway/Road/Alley/Street/Sidewalk "
+        "START DT May 3, 2026 7:30:00 PM END DT May 3, 2026 7:50:00 PM\n"
+        "KEY:\nPSA - The Police Service Area...\n"
+    )
+    out = parse_crime_email(
+        subject="MPD: Preliminary Crime Report for 6D",
+        text_body=body,
+    )
+    assert [r.ccn for r in out] == ["26059195", "26059115"]
+    assert out[0].offense == "Theft"
+    assert out[0].method == "Theft (Second Degree)"
+    assert out[0].block == "100 BLOCK OF KENILWORTH AVENUE NE"
+    assert out[0].location == "Residence/Home"
+    assert out[0].rpt_date.startswith("2026-05-04T01:35:53")  # 9:35 PM EDT → 01:35 UTC next day
+    assert out[1].location == "Highway/Road/Alley/Street/Sidewalk"
+
+
 def test_parse_crime_email_extracts_pdf_only_location_field():
     """The new LOCATION enum (not in the API feed) is the whole reason
     we're parsing these emails — make sure it lands."""
