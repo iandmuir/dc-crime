@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from wswdy.districts import _normalize_district, district_for
 from wswdy.repos import subscribers as subs_repo
-from wswdy.repos.fetch_log import last_attempt
+from wswdy.repos.fetch_log import last_attempt, last_with_data
 from wswdy.repos.pdf_ingest_log import latest_per_district_kind
 from wswdy.repos.send_log import recent_failures, send_volume_last_n_days
 from wswdy.repos.subscribers import list_by_status
@@ -163,6 +163,7 @@ async def admin_dashboard(request: Request, token: str = ""):
         "rejected": [_with_map_token(s) for s in list_by_status(db, "REJECTED")],
         "unsubscribed": [_with_map_token(s) for s in list_by_status(db, "UNSUBSCRIBED")],
         "last_fetch": last_attempt(db),
+        "last_fetch_with_data": last_with_data(db),
         "send_volume": send_volume_last_n_days(db, n=7, today=str(date.today())),
         "failures": recent_failures(db, limit=20),
         "pdf_coverage": _build_pdf_coverage(db),

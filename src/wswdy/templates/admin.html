@@ -170,8 +170,16 @@
     <h2 class="card-title">MPD fetch</h2>
     {% if last_fetch %}
       <div class="summary-row"><span class="k">status</span><span class="v">{{ last_fetch.status }}</span></div>
-      <div class="summary-row"><span class="k">when</span><span class="v tnum">{{ last_fetch.fetched_at | et }}</span></div>
+      <div class="summary-row"><span class="k">last attempt</span><span class="v tnum">{{ last_fetch.fetched_at | et }}</span></div>
       <div class="summary-row"><span class="k">added / updated</span><span class="v tnum">+{{ last_fetch.crimes_added or 0 }} / ~{{ last_fetch.crimes_updated or 0 }}</span></div>
+      <div class="summary-row">
+        <span class="k">last with new crimes</span>
+        <span class="v tnum">
+          {% if last_fetch_with_data %}
+            {{ last_fetch_with_data.fetched_at | et }} (+{{ last_fetch_with_data.crimes_added }})
+          {% else %}—{% endif %}
+        </span>
+      </div>
       {% if last_fetch.error %}<div class="summary-row"><span class="k">error</span><span class="v">{{ last_fetch.error }}</span></div>{% endif %}
     {% else %}<p>No fetches recorded.</p>{% endif %}
   </div>
