@@ -86,6 +86,14 @@ def set_status(db: sqlite3.Connection, sid: str, status: str) -> None:
     db.commit()
 
 
+def set_radius(db: sqlite3.Connection, sid: str, radius_m: int) -> None:
+    """Update a subscriber's notification radius (in metres). Used by the
+    admin "Edit radius" inline form. Caller is expected to validate the
+    value range — this just writes."""
+    db.execute("UPDATE subscribers SET radius_m=? WHERE id=?", (radius_m, sid))
+    db.commit()
+
+
 def set_last_sent(db: sqlite3.Connection, sid: str, when_iso: str) -> None:
     db.execute("UPDATE subscribers SET last_sent_at=? WHERE id=?", (when_iso, sid))
     db.commit()

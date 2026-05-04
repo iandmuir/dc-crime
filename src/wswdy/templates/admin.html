@@ -76,6 +76,17 @@
         <div class="pending-actions">
           <a href="/map/{{ s.id }}?token={{ s.map_token }}" target="_blank"
              class="btn btn-secondary btn-sm">Map</a>
+          {# Inline radius edit. Number input is pre-filled with the current
+             value so admins can tweak by a few hundred meters without
+             re-typing. Steps in 100m increments to match the signup slider. #}
+          <form method="post" action="/admin/subscriber/{{ s.id }}/radius"
+                style="display:inline-flex; gap:.25rem; align-items:center;">
+            <input type="hidden" name="token" value="{{ token }}" />
+            <input type="number" name="radius_m" value="{{ s.radius_m }}"
+                   min="100" max="5000" step="100" required
+                   class="radius-input" aria-label="Radius (m)" />
+            <button type="submit" class="btn btn-secondary btn-sm">Save&nbsp;m</button>
+          </form>
           <form method="post" action="/admin/subscriber/{{ s.id }}/unsubscribe" style="display:inline">
             <input type="hidden" name="token" value="{{ token }}" />
             <button type="submit" class="btn btn-secondary btn-sm">Unsubscribe</button>

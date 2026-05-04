@@ -187,3 +187,30 @@ async def admin_unsubscribe_subscriber(request: Request, sid: str, token: str = 
     if subs_repo.get(db, sid):
         subs_repo.set_status(db, sid, "UNSUBSCRIBED")
     return RedirectResponse(url=f"/admin?token={token}", status_code=303)
+
+
+# Bounds for the radius edit form. The signup flow caps radius at 2000m via
+# the slider; admin override accepts a wider range so we can hand-tune
+# subscribers in dense vs. sparse blocks. Anything below 100m is unusable
+# (digests would be near-empty); above 5000m is implausible for a "near me"
+# alert and likely a typo.
+_RADIUS_MIN_M = 100
+_RADIUS_MAX_M = 5000
+
+
+@router.post("/admin/subscriber/{sid}/radius")
+async def admin_set_radius(
+    request: Request, sid: str,
+    token: str = Form(...), radius_m: int = Form(...),
+):
+    if (resp := _check_admin(request, token)) is not None:
+        return resp
+    if not (_RADIUS_MIN_M <= radius_m <= _RADIUS_MAX_M):
+        return Response(
+            status_code=400,
+            content=f"radius_m must be between {_RADIUS_MIN_M} and {_RADIUS_MAX_M}",
+        )
+    db = request.app.state.db
+    if subs_repo.get(db, sid):
+        subs_repo.set_radius(db, sid, radius_m)
+    return RedirectResponse(url=f"/admin?token={token}", status_code=303)
