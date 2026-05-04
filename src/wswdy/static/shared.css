@@ -1118,7 +1118,7 @@ body {
    Width fits 4 digits + the browser's native spinner arrows without
    clipping the value. tnum lining figures so 1200 / 1500 / 2000 line up. */
 .radius-input {
-  width: 6.5rem;
+  width: 3.75rem;
   padding: 0.25rem 0.4rem;
   font-family: var(--font-mono);
   font-size: 0.82rem;
@@ -1132,6 +1132,15 @@ body {
   outline: 2px solid var(--ink);
   outline-offset: 1px;
 }
+/* Hide the native number-input spinner arrows — they eat horizontal space
+   and the 100m-step admin tweak doesn't benefit from click-to-increment.
+   Admins type the value directly. */
+.radius-input::-webkit-outer-spin-button,
+.radius-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.radius-input { -moz-appearance: textfield; appearance: textfield; }
 
 .cov-light.cov-green  { background: #2ecc71; }
 .cov-light.cov-yellow { background: #f1c40f; }
