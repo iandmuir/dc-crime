@@ -1,8 +1,9 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
+from wswdy.districts import district_for
 from wswdy.repos import subscribers as subs_repo
 from wswdy.repos.fetch_log import last_attempt
 from wswdy.repos.pdf_ingest_log import latest_per_district_kind
@@ -37,9 +38,49 @@ def _coverage_status(ingested_at: str | None) -> tuple[str, float | None]:
     return "red", hours
 
 
+def _crimes_24h_by_district(db) -> dict[str, int]:
+    """Count crimes whose ``report_dt`` lies in the last 24 hours, bucketed by
+    district. Drives the "API crimes today" column on the admin coverage tracker.
+    The crimes table already carries a ``district`` column from the ArcGIS feed,
+    so this is a single-pass GROUP BY."""
+    cutoff = (datetime.now(UTC) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    rows = db.execute(
+        "SELECT district, COUNT(*) AS n FROM crimes "
+        "WHERE report_dt >= ? AND district IS NOT NULL "
+        "GROUP BY district",
+        (cutoff,),
+    ).fetchall()
+    return {r["district"]: r["n"] for r in rows}
+
+
+def _crashes_24h_by_district(db) -> dict[str, int]:
+    """Count crashes from the last 24h per MPD district. Crashes don't carry a
+    district column (the DC feed only gives ward), so we point-in-polygon each
+    crash's lat/lon against the cached district boundaries. Past-24h is a small
+    set (typically <100), so the per-row scan is cheap."""
+    cutoff = (datetime.now(UTC) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    rows = db.execute(
+        "SELECT lat, lon FROM crashes WHERE report_dt >= ?",
+        (cutoff,),
+    ).fetchall()
+    counts: dict[str, int] = {}
+    for r in rows:
+        d = district_for(r["lat"], r["lon"])
+        if d:
+            counts[d] = counts.get(d, 0) + 1
+    return counts
+
+
 def _build_pdf_coverage(db) -> list[dict]:
-    """One row per district × {crime, arrest}. Used by the admin coverage tracker."""
+    """One row per district × {crime, arrest}. Used by the admin coverage tracker.
+
+    Each row also carries ``crimes_24h`` and ``crashes_24h`` — counts from the
+    canonical ArcGIS feed (independent of the LISTSERV emails), so admins can
+    spot-check that the email-reported numbers line up with what the public
+    feed shows for that district."""
     latest = {(r["district"], r["kind"]): r for r in latest_per_district_kind(db)}
+    crimes_today = _crimes_24h_by_district(db)
+    crashes_today = _crashes_24h_by_district(db)
     out = []
     for district in DISTRICTS:
         cells = []
@@ -55,7 +96,12 @@ def _build_pdf_coverage(db) -> list[dict]:
                 "records": row["records"] if row else 0,
                 "source_file": row["source_file"] if row else None,
             })
-        out.append({"district": district, "cells": cells})
+        out.append({
+            "district": district,
+            "cells": cells,
+            "crimes_24h": crimes_today.get(district, 0),
+            "crashes_24h": crashes_today.get(district, 0),
+        })
     return out
 
 

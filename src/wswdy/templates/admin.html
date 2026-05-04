@@ -125,7 +125,9 @@
     <h2 class="card-title">Report coverage</h2>
     <p style="font-size:.85rem; color:var(--ink-2); margin:.25rem 0 .8rem;">
       Daily MPD LISTSERV reports per district. Green = ingested in last 24h,
-      yellow = 24-48h, red = older or never.
+      yellow = 24-48h, red = older or never. Counts in the report cells are
+      records from the most recent email; the right-hand columns count entries
+      from the canonical ArcGIS feed (last 24h).
     </p>
     <table class="coverage-table">
       <thead>
@@ -133,6 +135,8 @@
           <th style="text-align:left;">District</th>
           <th>Crime Report</th>
           <th>Arrest Report</th>
+          <th title="Crimes in the last 24h from the ArcGIS feed (district-tagged)">Crimes (API · 24h)</th>
+          <th title="Crashes in the last 24h from the ArcGIS feed (district via point-in-polygon)">Crashes (API · 24h)</th>
         </tr>
       </thead>
       <tbody>
@@ -149,8 +153,13 @@
               {% elif cell.hours < 48 %}{{ "%.0f"|format(cell.hours) }}h
               {% else %}{{ "%.0f"|format(cell.hours / 24) }}d{% endif %}
             </span>
+            <span class="cov-count tnum">
+              {% if cell.ingested_at %}{{ cell.records }}{% if cell.kind == 'crime' %} crimes{% else %} arrests{% endif %}{% else %}—{% endif %}
+            </span>
           </td>
           {% endfor %}
+          <td class="tnum">{{ row.crimes_24h }}</td>
+          <td class="tnum">{{ row.crashes_24h }}</td>
         </tr>
         {% endfor %}
       </tbody>

@@ -1105,6 +1105,14 @@ body {
 .cov-light.cov-yellow { background: #f1c40f; }
 .cov-light.cov-red    { background: #e74c3c; }
 .cov-meta { color: var(--ink-3); font-size: 0.8rem; }
+/* Record count from the most recent email, shown next to the timing in each
+   coverage cell. Slightly dimmer than the timing label so the eye lands on
+   the traffic light first. */
+.cov-count {
+  color: var(--ink-2);
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+}
 
 /* District chips on the admin subscriber rows. Primary = filled, extras
    = outlined (so the visual hierarchy matches "main district vs widened
