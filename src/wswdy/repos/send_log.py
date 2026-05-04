@@ -43,7 +43,8 @@ def recent_failures(db: sqlite3.Connection, limit: int = 20) -> list[dict]:
 
 
 def send_volume_last_n_days(db: sqlite3.Connection, *, n: int, today: str) -> list[dict]:
-    """Returns one row per send_date with sent/failed counts. Empty days omitted."""
+    """Returns one row per send_date with sent/failed counts, newest day first.
+    Empty days omitted."""
     rows = db.execute(
         """SELECT send_date,
                   SUM(CASE WHEN status='sent'   THEN 1 ELSE 0 END) AS sent,
@@ -52,7 +53,7 @@ def send_volume_last_n_days(db: sqlite3.Connection, *, n: int, today: str) -> li
              FROM send_log
             WHERE send_date >= date(?, ?)
          GROUP BY send_date
-         ORDER BY send_date""",
+         ORDER BY send_date DESC""",
         (today, f"-{n} days"),
     ).fetchall()
     return [dict(r) for r in rows]
