@@ -109,9 +109,13 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).info("send_job result: %s", result)
 
     async def health_job():
+        # No ``today=`` arg — the job computes it in ET internally so the
+        # send-volume filter matches send_log rows, which are written with
+        # ET-anchored dates. Passing ``str(date.today())`` from a UTC server
+        # was zeroing out the metrics for ~5 hours each evening.
         await run_health_snapshot(
             db=app.state.db, email=app.state.email_notifier,
-            admin_email=settings.admin_email, today=str(date.today()),
+            admin_email=settings.admin_email,
         )
 
     async def inbound_job():

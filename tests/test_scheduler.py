@@ -39,4 +39,7 @@ def test_jobs_have_expected_times():
     assert "hour='8'" in times["send_morning_b"]
     # Hourly fallback resumes at 9 AM through 7 PM
     assert "hour='9-19'" in times["send_fallback"]
-    assert "hour='23'" in times["health"]
+    # Health snapshot moved to 8:30 ET so the email reflects today's
+    # actual sends (was 23:00 — UTC midnight roll-over zeroed the metrics).
+    assert "hour='8'" in times["health"]
+    assert "minute='30'" in times["health"]
