@@ -26,15 +26,15 @@ def upsert_many(db: sqlite3.Connection, crimes: list[dict]) -> tuple[int, int]:
     for c in crimes:
         cur = db.execute("SELECT 1 FROM crimes WHERE ccn=?", (c["ccn"],)).fetchone()
         if cur:
-            # Refresh fetched_at on UPDATE so the admin "Crimes (API · 24h)"
-            # column reflects what we actually saw in the latest fetch cycle,
-            # not just brand-new rows. Without this, repeat-fetched rows keep
-            # their original insert timestamp and look stale.
+            # Bump last_seen_at (not fetched_at) on UPDATE so the admin
+            # coverage tracker can count "rows we saw in the latest fetch"
+            # without polluting fetched_at, which the digest reads to spot
+            # *newly* reported items. fetched_at stays "first ingested".
             db.execute(
                 """UPDATE crimes SET
                    offense=?, method=?, shift=?, block_address=?, lat=?, lon=?,
                    report_dt=?, start_dt=?, end_dt=?, ward=?, district=?, raw_json=?,
-                   fetched_at=CURRENT_TIMESTAMP
+                   last_seen_at=CURRENT_TIMESTAMP
                    WHERE ccn=?""",
                 (c["offense"], c["method"], c["shift"], c["block_address"], c["lat"], c["lon"],
                  c["report_dt"], c["start_dt"], c["end_dt"], c["ward"], c["district"],
@@ -45,8 +45,9 @@ def upsert_many(db: sqlite3.Connection, crimes: list[dict]) -> tuple[int, int]:
             db.execute(
                 """INSERT INTO crimes
                    (ccn, offense, method, shift, block_address, lat, lon,
-                    report_dt, start_dt, end_dt, ward, district, raw_json)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    report_dt, start_dt, end_dt, ward, district, raw_json,
+                    last_seen_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, CURRENT_TIMESTAMP)""",
                 (c["ccn"], c["offense"], c["method"], c["shift"], c["block_address"],
                  c["lat"], c["lon"], c["report_dt"], c["start_dt"], c["end_dt"],
                  c["ward"], c["district"], c["raw_json"]),
