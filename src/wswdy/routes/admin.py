@@ -39,17 +39,18 @@ def _coverage_status(ingested_at: str | None) -> tuple[str, float | None]:
 
 
 def _crimes_24h_by_district(db) -> dict[str, int]:
-    """Count crimes ingested in the last 24h per district. Filters on
-    ``fetched_at`` (when WE got the row) rather than ``report_dt`` (when the
-    crime happened), because MPD's ArcGIS feed lags 24-72h — using report_dt
-    would near-always return zero for the "today's fetch" view this drives.
+    """Count crimes seen in the last 24h per district. Filters on
+    ``last_seen_at`` (most recent fetch that observed the row) rather than
+    ``fetched_at`` (first-ingested) — the latter is reserved for the
+    digest's "newly reported" semantics, and ``report_dt`` is unusable
+    here because MPD's ArcGIS feed lags 24-72h.
 
     The ArcGIS feed stores district as a bare digit (``'1'``..``'7'``) while
     the rest of the app uses ``'1D'``..``'7D'`` — normalize before bucketing."""
     cutoff = (datetime.now(UTC) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
     rows = db.execute(
         "SELECT district, COUNT(*) AS n FROM crimes "
-        "WHERE fetched_at >= ? AND district IS NOT NULL "
+        "WHERE last_seen_at >= ? AND district IS NOT NULL "
         "GROUP BY district",
         (cutoff,),
     ).fetchall()
@@ -62,14 +63,14 @@ def _crimes_24h_by_district(db) -> dict[str, int]:
 
 
 def _crashes_24h_by_district(db) -> dict[str, int]:
-    """Count crashes ingested in the last 24h per MPD district. Crashes don't
+    """Count crashes seen in the last 24h per MPD district. Crashes don't
     carry a district column (the DC feed only gives ward), so we point-in-
     polygon each crash's lat/lon against the cached district boundaries.
-    Filter is on ``fetched_at`` for the same lag reason as crimes — see
-    ``_crimes_24h_by_district``."""
+    Filter on ``last_seen_at`` — see ``_crimes_24h_by_district`` for why
+    that's the right column."""
     cutoff = (datetime.now(UTC) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
     rows = db.execute(
-        "SELECT lat, lon FROM crashes WHERE fetched_at >= ?",
+        "SELECT lat, lon FROM crashes WHERE last_seen_at >= ?",
         (cutoff,),
     ).fetchall()
     counts: dict[str, int] = {}

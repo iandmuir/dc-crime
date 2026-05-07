@@ -38,16 +38,19 @@ def upsert_many(db: sqlite3.Connection, crashes: list[dict]) -> tuple[int, int]:
     for c in crashes:
         cur = db.execute("SELECT 1 FROM crashes WHERE id=?", (c["id"],)).fetchone()
         if cur:
-            # Refresh fetched_at on UPDATE — see crimes.upsert_many for the
-            # rationale (admin coverage tracker reads the column).
+            # Bump last_seen_at on UPDATE (NOT fetched_at). The digest's
+            # "newly reported" count keys on fetched_at = first-ingested,
+            # so refreshing it here would mark every re-fetched crash as
+            # new. See crimes.upsert_many for the same fix.
             db.execute(
-                f"UPDATE crashes SET {update_set}, fetched_at=CURRENT_TIMESTAMP WHERE id=?",
+                f"UPDATE crashes SET {update_set}, last_seen_at=CURRENT_TIMESTAMP WHERE id=?",
                 (*[c.get(col) for col in _COLUMNS if col != "id"], c["id"]),
             )
             updated += 1
         else:
             db.execute(
-                f"INSERT INTO crashes ({cols}) VALUES ({placeholders})",
+                f"INSERT INTO crashes ({cols}, last_seen_at) "
+                f"VALUES ({placeholders}, CURRENT_TIMESTAMP)",
                 tuple(c.get(col) for col in _COLUMNS),
             )
             added += 1

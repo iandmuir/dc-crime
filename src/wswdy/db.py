@@ -207,7 +207,35 @@ def connect(db_path: str) -> sqlite3.Connection:
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
     _migrate_subscribers_districts(conn)
+    _migrate_last_seen_at(conn)
     conn.commit()
+
+
+def _migrate_last_seen_at(conn: sqlite3.Connection) -> None:
+    """Add ``last_seen_at`` to crimes/crashes if missing.
+
+    ``fetched_at`` means "first ingested" (digest's "newly reported" calc keys
+    on it). ``last_seen_at`` means "most recently observed in any fetch" —
+    drives the admin coverage tracker's per-district counts.
+
+    Migration steps for each table:
+      1. Add ``last_seen_at`` and seed it from ``fetched_at`` (current value
+         is effectively "last update", which is what we want).
+      2. Reset ``fetched_at`` to a fixed past sentinel for existing rows. An
+         earlier deploy bumped ``fetched_at`` on every UPDATE, polluting it
+         for every row. We can't recover original insert times, so we mark
+         existing rows as "old" — the digest's "newly reported" check will
+         correctly return False for them. New rows inserted after this
+         migration will get a correct ``fetched_at`` from the schema's
+         ``DEFAULT CURRENT_TIMESTAMP``.
+    """
+    sentinel = "1970-01-01 00:00:00"
+    for table in ("crimes", "crashes"):
+        cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if "last_seen_at" not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN last_seen_at TIMESTAMP")
+            conn.execute(f"UPDATE {table} SET last_seen_at = fetched_at")
+            conn.execute(f"UPDATE {table} SET fetched_at = ?", (sentinel,))
 
 
 def _migrate_subscribers_districts(conn: sqlite3.Connection) -> None:
