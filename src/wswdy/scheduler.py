@@ -8,7 +8,10 @@ Daily ET-anchored jobs:
                                Each invocation also runs a fresh fetch.
   inbound   every 5 min — scans the WhatsApp bridge DB for "STOP" replies
                           and unsubscribes the matching subscribers.
-  health    23:00       end-of-day snapshot
+  health    08:30       morning snapshot — runs right after the morning
+                        send window closes (last attempt at 8:15) so
+                        the email is a same-day "did the digests ship?"
+                        check rather than a stale end-of-day report.
 
 The standalone fetch job is gone: every hourly send trigger fetches first,
 which both replaces the morning fetch and gives the freshness check the
@@ -66,5 +69,7 @@ def build_scheduler(
         # subscribers expect their STOP reply to take effect immediately,
         # not after a five-minute wait.
         s.add_job(inbound_fn, IntervalTrigger(minutes=1), id="inbound")
-    s.add_job(health_fn, CronTrigger(hour=23, minute=0, timezone=ET), id="health")
+    # Morning snapshot — run shortly after the last morning send attempt
+    # (8:15 ET) so the "Sends today" line reflects today's actual run.
+    s.add_job(health_fn, CronTrigger(hour=8, minute=30, timezone=ET), id="health")
     return s
