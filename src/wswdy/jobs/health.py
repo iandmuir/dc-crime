@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from wswdy.notifiers.base import Notifier
-from wswdy.repos.fetch_log import last_attempt
+from wswdy.repos.fetch_log import last_attempt, last_with_data
 from wswdy.repos.send_log import recent_failures, send_volume_last_n_days
 from wswdy.repos.subscribers import list_by_status
 
@@ -47,6 +47,10 @@ async def run_health_snapshot(
     approved = len(list_by_status(db, "APPROVED"))
     unsub = len(list_by_status(db, "UNSUBSCRIBED"))
     last_fetch = last_attempt(db) or {}
+    # The most recent fetch is almost always "+0 / ~N" — the morning fetch
+    # that actually pulled new crimes is usually a few hours back. Surface
+    # both so we can see "we tried recently" AND "we got data this morning".
+    last_data = last_with_data(db)
     today_volume = [
         r for r in send_volume_last_n_days(db, n=1, today=today)
         if r["send_date"] == today
@@ -60,12 +64,17 @@ async def run_health_snapshot(
         "",
         f"Subscribers: {approved} approved · {pending} pending · {unsub} unsubscribed",
         (
-            f"MPD fetch:   {last_fetch.get('status', 'never')} "
+            f"Last fetch:     {last_fetch.get('status', 'never')} "
             f"(+{last_fetch.get('crimes_added') or 0}, "
             f"~{last_fetch.get('crimes_updated') or 0}) "
             f"at {_fmt_fetched_at_et(last_fetch.get('fetched_at'))}"
         ),
-        f"Sends today: {sent_count} sent · {failed_count} failed",
+        (
+            f"Last w/ data:   +{last_data['crimes_added']} new crimes "
+            f"at {_fmt_fetched_at_et(last_data['fetched_at'])}"
+            if last_data else "Last w/ data:   never"
+        ),
+        f"Sends today:    {sent_count} sent · {failed_count} failed",
     ]
     if fails:
         lines.append("")
