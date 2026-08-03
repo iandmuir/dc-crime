@@ -1,5 +1,6 @@
 """SMTP-backed notifier."""
 import logging
+import re
 from email.message import EmailMessage
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -40,17 +41,25 @@ class EmailNotifier:
 
     async def send(self, *, recipient: str, subject: str, text: str,
                    image_path: Path | None,
-                   unsubscribe_url: str | None = None) -> SendResult:
+                   unsubscribe_url: str | None = None,
+                   html: str | None = None) -> SendResult:
         # The shared digest text ends with "Reply STOP to unsubscribe.",
         # which makes sense for WhatsApp but is meaningless for email
         # (we don't parse inbound mail). Strip it for the email channel
         # and replace with an unsubscribe URL line in plain text + the
         # styled footer link in HTML.
+        #
+        # When the caller provides pre-rendered `html` (the structured
+        # digest layout from wswdy.digest_html), we use it as the body
+        # content directly — it already places the cid:preview image and
+        # WhatsApp bold markers never appear in it. Otherwise fall back
+        # to the legacy monospace-text rendering.
         plain_text = _email_plain_text(text, unsubscribe_url)
         html_body = _render_html(
             _strip_reply_stop(text),
             has_image=image_path is not None,
             unsubscribe_url=unsubscribe_url,
+            pre_rendered=html,
         )
 
         if image_path is not None:
@@ -115,9 +124,11 @@ def _strip_reply_stop(text: str) -> str:
 
 def _email_plain_text(text: str, unsubscribe_url: str | None) -> str:
     """Build the plain-text email body. Drops the WhatsApp-style 'Reply STOP'
-    line and (when present) appends a real unsubscribe URL the recipient
-    can click in any reasonable mail client."""
+    line and bold markers (*...* renders literally outside WhatsApp), and
+    (when present) appends a real unsubscribe URL the recipient can click
+    in any reasonable mail client."""
     body = _strip_reply_stop(text)
+    body = re.sub(r"\*([^*\n]+)\*", r"\1", body)
     if unsubscribe_url:
         body += f"\n\nUnsubscribe: {unsubscribe_url}"
     return body
@@ -128,19 +139,29 @@ def _escape(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _render_html(text: str, *, has_image: bool, unsubscribe_url: str | None) -> str:
-    """Render the digest text as a styled HTML email with optional inline image
-    placeholder (cid:preview) and an unsubscribe footer link."""
-    body_inner = (
-        f"<pre style='font: 14px/1.5 ui-monospace, monospace; white-space:pre-wrap;"
-        f" background:#fff; padding:18px; border:1px solid #E5E3DC; border-radius:10px;"
-        f" margin:0;'>{_escape(text)}</pre>"
-    )
-    if has_image:
-        body_inner += (
-            "<img src='cid:preview' style='display:block;margin-top:12px;"
-            "max-width:100%;border:1px solid #E5E3DC;border-radius:10px;' />"
+def _render_html(text: str, *, has_image: bool, unsubscribe_url: str | None,
+                 pre_rendered: str | None = None) -> str:
+    """Render the digest as a styled HTML email.
+
+    `pre_rendered` (from wswdy.digest_html) is a structured HTML body that
+    already contains the cid:preview image slot; when absent we fall back
+    to the legacy monospace text block + appended image."""
+    if pre_rendered is not None:
+        body_inner = (
+            f"<div style='background:#fff; padding:22px; border:1px solid #E5E3DC;"
+            f" border-radius:10px;'>{pre_rendered}</div>"
         )
+    else:
+        body_inner = (
+            f"<pre style='font: 14px/1.5 ui-monospace, monospace; white-space:pre-wrap;"
+            f" background:#fff; padding:18px; border:1px solid #E5E3DC; border-radius:10px;"
+            f" margin:0;'>{_escape(text)}</pre>"
+        )
+        if has_image:
+            body_inner += (
+                "<img src='cid:preview' style='display:block;margin-top:12px;"
+                "max-width:100%;border:1px solid #E5E3DC;border-radius:10px;' />"
+            )
     if unsubscribe_url:
         body_inner += (
             f"<div style='margin-top:18px;padding-top:14px;border-top:1px solid #E5E3DC;"

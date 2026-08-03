@@ -93,10 +93,13 @@ async def test_send_does_not_crash_on_naive_fetched_at(db, tmp_path):
     wa = FakeNotifier()
     alerter = AdminAlerter(db=db, email=email, admin_email="admin@x",
                            ha_webhook_url="", suppression_hours=6)
+    # 14:00 UTC = 10:00 ET — past the 8:10 send cutoff, so the district-
+    # readiness gate force-sends even with no reports ingested. This test
+    # only cares that the naive fetched_at doesn't crash the job.
     out = await run_daily_sends(
         db=db, email=email, whatsapp=wa, alerter=alerter,
         base_url="https://x", hmac_secret="s",
-        send_date="2026-04-29", now_iso="2026-04-29T10:00:00+00:00",
+        send_date="2026-04-29", now_iso="2026-04-29T14:00:00+00:00",
         stagger=False, render_static_map=AsyncMock(return_value=tmp_path / "p.png"),
     )
     assert out["sent"] == 1

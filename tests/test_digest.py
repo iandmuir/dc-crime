@@ -40,12 +40,15 @@ def test_build_digest_text_includes_all_required_pieces():
     )
     assert "Jane" in text
     assert "1000m" in text or "1,000m" in text
-    assert "3 crimes reported" in text
-    # tier counts
+    # TL;DR summary line carries total + violent status
+    assert "3 crimes" in text
     assert "1 violent" in text
-    assert "0 serious property" in text
+    # Non-zero tier lines render; zero tiers are folded into the summary
     assert "1 vehicle" in text
     assert "1 petty" in text
+    assert "0 serious property" not in text
+    # Bold WhatsApp section header
+    assert "*Crimes*" in text
     # Map URL appears in the body; unsub URL does NOT (we just say "Reply STOP")
     assert "https://x/map/abc?token=t" in text
     assert "Reply STOP" in text
@@ -145,12 +148,12 @@ def test_digest_renders_arrest_tier_counts_and_closest():
         map_url="https://x/m", unsubscribe_url="https://x/u",
         arrests=arrests, have_arrest_today=True,
     )
-    assert "👮 Arrests within 1,000m (last 24h):" in text
+    assert "*Arrests* — last 24h" in text
     assert "1 felony" in text
     assert "2 misdemeanors" in text
     assert "1 unspecified" in text
-    # Closest section shows the 2 nearest with full callouts.
-    assert "Closest:" in text
+    # Nearest section shows the 2 nearest with full callouts.
+    assert "Nearest:" in text
     assert "Felony — Threat To Kidnap" in text
     # Demographics are formatted as (Name, age, gender-letter).
     assert "(Jane Doe, 36, F)" in text
@@ -242,7 +245,7 @@ def test_digest_renders_crash_tier_counts():
         map_url="https://x/m", unsubscribe_url="https://x/u",
         crashes=crashes,
     )
-    assert "🚦 Crashes within 1,000m" in text
+    assert "*Crashes* — last 7 days" in text
     assert "1 fatal" in text
     assert "2 major injuries" in text
     assert "1 minor injuries" in text
