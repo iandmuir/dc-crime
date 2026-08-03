@@ -8,7 +8,8 @@ async def test_fake_notifier_records_sends():
     assert isinstance(r, SendResult)
     assert r.ok is True
     assert n.sent == [{"recipient": "x@y.com", "subject": "hi",
-                       "text": "body", "image_path": None}]
+                       "text": "body", "image_path": None,
+                       "unsubscribe_url": None, "html": None}]
 
 
 async def test_fake_notifier_can_be_set_to_fail():

@@ -13,8 +13,12 @@ class WhatsAppMcpNotifier:
         self.token = token
 
     async def send(self, *, recipient: str, subject: str, text: str,
-                   image_path: Path | None) -> SendResult:
-        """Send a WhatsApp message. `subject` is ignored (WhatsApp has no subject line)."""
+                   image_path: Path | None,
+                   unsubscribe_url: str | None = None,
+                   html: str | None = None) -> SendResult:
+        """Send a WhatsApp message. `subject`, `unsubscribe_url`, and `html`
+        are ignored (WhatsApp has no subject line; STOP replies handle
+        unsubscribes; the text body already carries WhatsApp formatting)."""
         try:
             res = await send_message(
                 base_url=self.base_url, token=self.token,

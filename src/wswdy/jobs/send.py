@@ -23,7 +23,8 @@ def _parse_iso_as_utc(s: str) -> datetime:
     return dt
 
 from wswdy.alerts import AdminAlerter
-from wswdy.digest import build_digest_text
+from wswdy.digest import build_digest_subject, build_digest_text
+from wswdy.digest_html import build_digest_html
 from wswdy.notifiers.base import Notifier, dispatch
 from wswdy.repos.arrests import list_in_radius_window as list_arrests_in_radius_window
 from wswdy.repos.crashes import list_in_radius_window as list_crashes_in_radius_window
@@ -168,6 +169,12 @@ async def run_daily_sends(
         map_url = f"{base_url}/map/{sub['id']}?token={map_token}"
         unsub_url = f"{base_url}/u/{sub['id']}?token={unsub_token}"
 
+        # ET-anchored date labels: "Thu, May 7" for the body header,
+        # "5/7" for the subject line.
+        now_et = _parse_iso_as_utc(now_iso).astimezone(ET)
+        date_label = f"{now_et.strftime('%a, %b')} {now_et.day}"
+        date_short = f"{now_et.month}/{now_et.day}"
+
         text = build_digest_text(
             display_name=sub["display_name"], radius_m=sub["radius_m"],
             crimes=crimes, crashes=crashes,
@@ -176,6 +183,7 @@ async def run_daily_sends(
             home_lat=sub["lat"], home_lon=sub["lon"],
             map_url=map_url, unsubscribe_url=unsub_url,
             mpd_warning=mpd_warning,
+            date_label=date_label,
         )
 
         # Static map preview (best-effort; still send text-only on render failure)
@@ -192,11 +200,29 @@ async def run_daily_sends(
             except Exception as e:
                 log.warning("Static map render failed for %s: %s", sub["id"], e)
 
+        # Structured HTML body for the email channel (WhatsApp ignores it).
+        # Built after the map render so it knows whether the cid:preview
+        # image slot will be populated.
+        html = build_digest_html(
+            display_name=sub["display_name"], radius_m=sub["radius_m"],
+            crimes=crimes, crashes=crashes,
+            new_crash_count=new_crash_count,
+            arrests=arrests, have_arrest_today=have_arrest_today,
+            home_lat=sub["lat"], home_lon=sub["lon"],
+            map_url=map_url, mpd_warning=mpd_warning,
+            date_label=date_label,
+            has_image=image_path is not None,
+        )
+
         result = await dispatch(
             sub,
             email_notifier=email,
             whatsapp_notifier=whatsapp,
-            subject=f"WTFDC for {sub['display_name']} — {send_date}",
+            html=html,
+            subject=build_digest_subject(
+                date_short=date_short, crimes=crimes,
+                arrests=arrests, have_arrest_today=have_arrest_today,
+            ),
             text=text,
             image_path=image_path,
             unsubscribe_url=unsub_url,
