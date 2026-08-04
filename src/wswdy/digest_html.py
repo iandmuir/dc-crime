@@ -58,21 +58,21 @@ def _h2(text: str, sub: str = "") -> str:
         if sub else ""
     )
     return (
-        f"<h2 style='font:600 15px/1.3 {_FONT};margin:22px 0 8px;"
+        f"<h2 style='font:600 15px/1.3 {_FONT};margin:30px 0 12px;"
         f"color:#0A0A0A;'>{_esc(text)}{sub_html}</h2>"
     )
 
 
 def _row(dot_color: str, text_html: str) -> str:
     return (
-        f"<div style='font:14px/1.7 {_FONT};color:#404040;'>"
+        f"<div style='font:14px/1.6 {_FONT};color:#404040;margin:6px 0;'>"
         f"{_dot(dot_color)}{text_html}</div>"
     )
 
 
 def _muted(text: str) -> str:
     return (
-        f"<div style='font:14px/1.7 {_FONT};color:#737373;'>{_esc(text)}</div>"
+        f"<div style='font:14px/1.6 {_FONT};color:#737373;margin:6px 0;'>{_esc(text)}</div>"
     )
 
 
@@ -103,7 +103,7 @@ def build_digest_html(
     if date_label:
         title += f" — {date_label}"
     parts.append(
-        f"<h1 style='font:700 19px/1.3 {_FONT};margin:0 0 4px;color:#0A0A0A;'>"
+        f"<h1 style='font:700 19px/1.3 {_FONT};margin:0 0 8px;color:#0A0A0A;'>"
         f"{_esc(title)} ☀️</h1>"
     )
     summary = _summary_line(
@@ -111,7 +111,7 @@ def build_digest_html(
         arrests=arrests, have_arrest_today=have_arrest_today,
     )
     parts.append(
-        f"<div style='font:15px/1.5 {_FONT};color:#404040;margin-bottom:6px;'>"
+        f"<div style='font:15px/1.6 {_FONT};color:#404040;margin-bottom:12px;'>"
         f"{_esc(summary)}</div>"
     )
 
@@ -150,13 +150,13 @@ def build_digest_html(
         if closest:
             parts.append(
                 f"<div style='font:600 13px/1.6 {_FONT};color:#737373;"
-                f"margin-top:10px;'>NEAREST TO YOU</div>"
+                f"margin:16px 0 6px;'>NEAREST TO YOU</div>"
             )
             for c in closest:
                 offense = humanize_offense(c["offense"], c.get("method"))
                 t = _fmt_time(c["report_dt"])
                 parts.append(
-                    f"<div style='font:14px/1.7 {_FONT};color:#404040;'>"
+                    f"<div style='font:14px/1.6 {_FONT};color:#404040;margin:6px 0;'>"
                     f"• {_esc(offense)} — {_esc(_fmt_blocks(c['distance_m']))} "
                     f"<span style='color:#737373;'>"
                     f"({_esc(humanize_address(c['block_address']))}, {_esc(t)})"
@@ -171,7 +171,7 @@ def build_digest_html(
         else:
             if new_crash_count > 0:
                 parts.append(
-                    f"<div style='font:14px/1.7 {_FONT};color:#0A0A0A;'>"
+                    f"<div style='font:14px/1.6 {_FONT};color:#0A0A0A;margin:6px 0;'>"
                     f"<strong>{new_crash_count} newly reported this week.</strong></div>"
                 )
             ccounts = _summarize_crashes_by_tier(crashes)
@@ -228,7 +228,7 @@ def build_digest_html(
             if closest_a:
                 parts.append(
                     f"<div style='font:600 13px/1.6 {_FONT};color:#737373;"
-                    f"margin-top:10px;'>NEAREST</div>"
+                    f"margin:16px 0 6px;'>NEAREST</div>"
                 )
                 for a in closest_a:
                     tier = classify_arrest(a)
@@ -251,7 +251,7 @@ def build_digest_html(
                     if when:
                         meta_bits.append(when)
                     parts.append(
-                        f"<div style='font:14px/1.7 {_FONT};color:#404040;'>"
+                        f"<div style='font:14px/1.6 {_FONT};color:#404040;margin:8px 0;'>"
                         f"• <strong>{_esc(tl)}</strong> — {_esc(offense)}{_esc(demo)}"
                         f"<br /><span style='color:#737373;padding-left:14px;'>"
                         f"📍 {_esc(' · '.join(meta_bits))}</span></div>"
@@ -259,7 +259,7 @@ def build_digest_html(
 
     # Map button
     parts.append(
-        f"<div style='margin:24px 0 4px;'>"
+        f"<div style='margin:30px 0 6px;'>"
         f"<a href='{_esc(map_url)}' style='display:inline-block;"
         f"background:#0A0A0A;color:#FFFFFF;text-decoration:none;"
         f"font:600 14px/1 {_FONT};padding:12px 22px;border-radius:10px;'>"

@@ -148,7 +148,7 @@ def _render_html(text: str, *, has_image: bool, unsubscribe_url: str | None,
     to the legacy monospace text block + appended image."""
     if pre_rendered is not None:
         body_inner = (
-            f"<div style='background:#fff; padding:22px; border:1px solid #E5E3DC;"
+            f"<div style='background:#fff; padding:28px 26px; border:1px solid #E5E3DC;"
             f" border-radius:10px;'>{pre_rendered}</div>"
         )
     else:
